@@ -1,6 +1,6 @@
 # WISP: Wenger Interferometry Software Package
 
-A modular data calibration and imaging pipeline
+A modular radio interferometry data calibration and imaging pipeline
 
 ## Preamble
 
@@ -54,8 +54,8 @@ pip.main(['install','matplotlib','--upgrade'])
 
 The configuration files contain the calibration and imaging parameters
 that define how the data from a specific project should be processed.
-An example calibration file is given in `config/example.ini`.  Here we
-explain each of the available parameters.
+A blank example configuration file is given in `config/example.ini`.
+Here we explain each of the available parameters.
 
 * [Calibrators]
 
@@ -118,6 +118,185 @@ explain each of the available parameters.
 
       Comma-separated spectral index coefficients (a0,a1,a2) as
       defined in the model equation.
+
+* [Spectral Windows]
+
+   Here we define which spectral windows should be used for
+   spectral line analyses and which should be used for continuum
+   analyses. The spectral windows are comma-separated. For example:
+   ```bash
+   Line      = 2,5,8,11,14,17,21,22
+   Continuum = 0,1,3,4,6,7,9,10,12,13,15,16,18,19,20,23
+   ```
+
+   * Line
+
+      Which spectral windows are for spectral line analyses.
+
+   * Continuum
+
+      Which spectral windows are for continuum analyses.
+
+* [Polarization]
+
+   * Polarization
+
+      Define the polarization direction for these data. For example:
+      ```bash
+      Polarization = LL,RR
+      ```
+
+* [Flags]
+
+   These parameters define what data should be flagged throughout
+   the entire measurement set. Multiple values are separated by commas,
+   and the syntax follows the normal CASA FLAGDATA syntax. For example:
+   ```bash
+   Antenna            = ea01,ea02
+   Line Channels      = 0~200,900~1100
+   Continuum Channels = 0,10,25,40
+   ```
+
+   * Antenna
+
+      Flag these antennas in all of the data.
+
+   * Line Channels
+
+      Flag these channels in every line spectral window.
+
+   * Continuum Channels
+
+      Flag these channels in every continuum spectral window.
+
+* [Interpolate]
+
+   Define channels containing known bad data which should be
+   overwritten with interpolated data. Values should be comma-separated,
+   for example:
+   ```bash
+   Line Channels      = 256,512
+   Continuum Channels = 2,5,10
+   ```
+
+   * Line Channels
+
+      Line spectral windows channels to interpolate.
+
+   * Continuum Channels
+
+      Continuum spectral window channels to interpolate.
+
+* [Bandpass Channel Average]
+
+   Define the number of channels to be averaged when computing
+   bandpass calibration solutions. An empty value means use no
+   channel averaging. For example:
+   ```bash
+   Line Channels      = 16
+   Continuum Channels =
+   ```
+
+   * Line Channels
+
+      The number of line spectral window channels to average.
+
+   * Continuum Channels
+
+      The number of continuum spectral window channels to average.
+
+* [Clean]
+
+   Here are the various parameters associated with imaging the data.
+   Most of these are explained in the [CASA manual for
+   TCLEAN](https://casa.nrao.edu/docs/taskref/tclean-task.html).
+   Below we describe only those not listed in the TCLEAN documentation.
+   Multiple values should be comma-separated, for example:
+   ```bash
+   restfreqs = 8045.605MHz,8309.385MHz,8584.823MHz
+   imsize    = 600,600
+   pblimit   = 0.1
+   etc.
+   ```
+
+   * lightniter
+
+      The number of CLEAN iterations used before estimating the
+      image noise level.
+
+   * maxniter
+
+      The maximum number of CLEAN iterations to be used.
+
+   * nrms
+
+      The CLEAN threshold as a multiplicative factor of the
+      lightly-cleaned image RMS. For example, if nrms = 2, CLEAN
+      until the maximum residual is less than 2 times the
+      lightly-cleaned image RMS.
+
+   * contpbchan
+
+      The continuum spectral window channel to use for wideband
+      primary beam correction.
+
+   * restfreqs
+
+      The rest frequency (with units) for each line spectral window.
+
+   * chanbuffer
+
+      The number of channels to image beyond the range specified
+      range (using start, width, nchan) to minimize the visible
+      effects of interpolation. These channels are removed from the
+      final image.
+
+   * lineoutframe
+
+      The output velocity frame for line spectral window cubes.
+
+   * contoutframe
+
+      The output velocity frame for continuum spectral window cubes.
+
+* [Mask NoTaper] and [Mask Taper]
+
+   These parameters define the automatic CLEAN-mask algorithm
+   "auto-multithresh" separated for line spectral windows,
+   continuum spectral windows, without uv-tapering, and with
+   uv-tapering. For more information about each parameter, see
+   the [auto-multithresh documentation](https://casaguides.nrao.edu/index.php/Automasking_Guide).
+
+* [Unflag]
+
+   These parameters define how line spectral window data should be
+   automatically un-flagged when the automatic flagging algorithms
+   unintentionally flag bright spectral lines. Multiple values
+   are comma-separated, for example:
+   ```bash
+   offset = 20,20,15,15,15,10,5,0
+   width  = 100
+   ```
+   If a spectral line is located at channel X in the last line
+   spectral window, these parameters define where the spectral line
+   is in every other spectral window. In each other spectral window,
+   the line should be at channel X + Y where Y is the offset. The
+   channels X+Y-width/2 to X+Y+width/2 are un-flagged.
+
+   * offset
+
+      Comma-separated channel offsets for each line spectral window
+      relative to the last line spectral window. The channel offset is
+      the location of a given velocity relative to the last line
+      spectral window. For example, if a velocity of 0 km/s is located
+      at channel 5, 10, 15, 20, and 25 in line spectral windows 1, 2,
+      3, 4, and 5, the channel offsets would be -20, -15, -10, -5, and
+      0.
+
+   * width
+
+      The total number of channels centered on the given channel to
+      be un-flagged.
 
 ## Calibration Quick-Start
 

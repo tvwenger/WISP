@@ -970,7 +970,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     logger.info("Calculating bandpass calibration table for primary calibrators...")
     if os.path.isdir('bandpass.Bcal'):
         casa.rmtables('bandpass.Bcal')
-    chan_avg = config.get('Calibration','Continuum Channels')
+    chan_avg = config.get('Bandpass Channel Average','Continuum Channels')
     if chan_avg == '':
         solint='inf'
     else:
@@ -984,7 +984,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     # average some channels as defined in configuration file,
     # append to continuum channel bandpass calibration table
     #
-    chan_avg = config.get('Calibration', 'Line Channels')
+    chan_avg = config.get('Bandpass Channel Average', 'Line Channels')
     if chan_avg == '':
         solint='inf'
     else:
