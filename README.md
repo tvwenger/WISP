@@ -50,11 +50,12 @@ pip.main(['install','astropy','--upgrade'])
 pip.main(['install','matplotlib','--upgrade'])
 ```
 
-## Configuration Files
+## Configuration File
 
 The configuration files contain the calibration and imaging parameters
 that define how the data from a specific project should be processed.
-Here we explain each of the available parameters.
+An example calibration file is given in `config/example.ini`.  Here we
+explain each of the available parameters.
 
 * [Calibrators]
 
