@@ -20,7 +20,7 @@ A modular radio interferometry data calibration and imaging pipeline
 
 * [Imaging Pipeline](#imaging-pipeline)
 
-* [License](#license)
+* [License and Copyright](#license-and-copyright)
 
 ## Preamble
 
