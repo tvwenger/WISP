@@ -2,6 +2,26 @@
 
 A modular radio interferometry data calibration and imaging pipeline
 
+## Table of Contents
+
+* [Preamble](#preamble)
+
+* [Caveats and Contributing](#caveats-and-contributing)
+
+* [Requirements](#requirements)
+
+* [Calibration Quick-Start](#calibration-quick-start)
+
+* [Imaging Quick-Start](#imaging-quick-start)
+
+* [Configuration File](#configuration-file)
+
+* [Calibration Pipeline](#calibration-pipeline)
+
+* [Imaging Pipeline](#imaging-pipeline)
+
+* [License](#license)
+
 ## Preamble
 
 WISP is a radio interferometry calibration and imaging pipeline
@@ -49,6 +69,47 @@ pip.main(['install','pip','--upgrade'])
 pip.main(['install','astropy','--upgrade'])
 pip.main(['install','matplotlib','--upgrade'])
 ```
+
+## Calibration Quick-Start
+
+Here is a short tutorial for calibrating a measurement set with
+WISP.
+
+* Create and/or edit the configuration file for your project (see
+  [Configuration File](#configuration-file) section below)
+
+* In the directory containing the measurement set, link (or copy) the
+  required WISP programs
+```bash
+ln -s /path/to/WISP/calibration.py .
+ln -s /path/to/WISP/logging.conf .
+ln -s /path/to/WISP/config/my_project.ini .
+```
+
+* Start *CASA*
+```bash
+/path/to/casa
+```
+
+* Import the WISP calibration pipeline
+```python
+import calibration
+```
+
+* Run the WISP calibration pipeline for your measurement set and
+  project configuration file
+```python
+calibration.main(vis='my_data.ms', config_file='my_project.ini')
+```
+
+* Select the required calibration tasks from the menu, or automatically
+  run these steps via
+```python
+calibration.main(vis='my_data.ms', config_file='my_project.ini',
+                 auto='0,4,1,4,5,6,7')
+```
+
+## Imaging Quick-Start
 
 ## Configuration File
 
@@ -298,50 +359,29 @@ Here we explain each of the available parameters.
       The total number of channels centered on the given channel to
       be un-flagged.
 
-## Calibration Quick-Start
-
-Here is a short tutorial for calibrating a measurement set with
-WISP.
-
-* Create and/or edit the configuration file for your project (see
-  [Configuration File](#configuration-file) section below)
-
-* In the directory containing the measurement set, link (or copy) the
-  required WISP programs
-```bash
-ln -s /path/to/WISP/calibration.py .
-ln -s /path/to/WISP/logging.conf .
-ln -s /path/to/WISP/config/my_project.ini .
-```
-
-* Start *CASA*
-```bash
-/path/to/casa
-```
-
-* Import the WISP calibration pipeline
-```python
-import calibration
-```
-
-* Run the WISP calibration pipeline for your measurement set and
-  project configuration file
-```python
-calibration.main(vis='my_data.ms', config_file='my_project.ini')
-```
-
-* Select the required calibration tasks from the menu, or automatically
-  run these steps via
-```python
-calibration.main(vis='my_data.ms', config_file='my_project.ini',
-                 auto='0,4,1,4,5,6,7')
-
-## Imaging Quick-Start
-
-
 
 ## Calibration Pipeline
 Here are specific details about the calibration pipeline
 
 ## Imaging Pipeline
 Here are specific details about the imaging pipeline
+
+## License and Copyright
+
+GNU General Public License v3 (GNU GPLv3)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published
+by the Free Software Foundation, either version 3 of the License,
+or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+Copyright(C) 2018 by
+Trey V. Wenger; tvwenger@gmail.com
