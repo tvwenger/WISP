@@ -38,7 +38,6 @@ of WISP.
 ## Requirements
 
 * Latest version of [*CASA*](https://casa.nrao.edu/)
-* `astropy`
 
 Note: The `matplotlib` and `astropy` packages included with *CASA*
 are very out of date (at least in *CASA* version 5.1.2). You may need
@@ -80,6 +79,44 @@ Here we explain each of the available parameters.
 
       The flux calibrator(s).
 
+* [Flux Calibrator Models]
+
+   If CASA is missing the flux model (or has an incorrect model) for
+   one or more of the flux calibrators, use these parameters to define
+   the flux model. The model for flux S at frequency f is given by:
+   S(f) = S0 * (f/f0) ** (a0 + a1*log10(f/f0) + a2*log10((f/f0)**2))
+   where S0 is the flux density at reference frequency f0, and a0, a1,
+   and a2 are the spectral index coefficients. If you wish to define
+   flux models for multiple flux calibrators, do so by listing
+   the values on new lines. For example
+   ```bash
+   Name                        = 3C48
+                                 3C286
+   Reference Frequency         = 5000MHz
+                                 8000MHz
+   Log Flux Density            = -30.8
+                                 -50.2
+   Spectral Index Coefficients = 26.3,-8.2,1.5
+                                 40.2,-10.7,0.9
+   ```
+   * Name
+
+      The calibrator field name for which this flux model should be
+      applied.
+
+   * Refrence Frequency
+
+      The reference frequency (with units as shown in the example).
+
+   * Log Flux Density
+
+      The log10 of the flux density (in Jy) at the reference
+      frequency.
+
+   * Spectral Index Coefficients
+
+      Comma-separated spectral index coefficients (a0,a1,a2) as
+      defined in the model equation.
 
 ## Calibration Quick-Start
 
