@@ -303,7 +303,8 @@ Here we explain each of the available parameters.
 Here is a short tutorial for calibrating a measurement set with
 WISP.
 
-* Create and/or edit the configuration file for your project (see above)
+* Create and/or edit the configuration file for your project (see
+  [Configuration File](#configuration-file) section below)
 
 * In the directory containing the measurement set, link (or copy) the
   required WISP programs
