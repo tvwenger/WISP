@@ -23,7 +23,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Changelog:
-Trey V. Wenger September 2018 - V1.0
+Trey V. Wenger November 2018 - V1.0
 """
 
 import __main__ as casa
