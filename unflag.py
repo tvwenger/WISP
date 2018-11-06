@@ -34,7 +34,7 @@ import logging
 import logging.config
 import ConfigParser
 
-__VERSION__ = "1.0"
+__version__ = "1.0"
 
 # load logging configuration file
 logging.config.fileConfig('logging.conf')
