@@ -81,106 +81,111 @@ WISP.
 
 * In the directory containing the measurement set, link (or copy) the
   required WISP programs
-```bash
-ln -s /path/to/WISP/calibration.py .
-ln -s /path/to/WISP/logging.conf .
-ln -s /path/to/WISP/config/my_project.ini .
-```
+  
+   ```bash
+   ln -s /path/to/WISP/calibration.py .
+   ln -s /path/to/WISP/logging.conf .
+   ln -s /path/to/WISP/config/my_project.ini .
+   ```
 
 * Start *CASA*
-```bash
-/path/to/casa
-```
+
+   ```bash
+   /path/to/casa
+   ```
 
 * Import the WISP calibration pipeline. Note that some versions of
-CASA do not include the current directory (`.`) in the system path,
-so you may need to add it.
-```python
-import sys
-sys.path = ['.']+sys.path
-import calibration
-```
+  CASA do not include the current directory (`.`) in the system path,
+  so you may need to add it.
+
+   ```python
+   import sys
+   sys.path = ['.']+sys.path
+   import calibration
+   ```
 
 * Run the WISP calibration pipeline for your measurement set and
   project configuration file
-```python
-calibration.main(vis='my_data.ms', config_file='my_project.ini')
-```
+  
+   ```python
+   calibration.main(vis='my_data.ms', config_file='my_project.ini')
+   ```
 
 * Select the required calibration tasks from the menu:
 
    * `0. Preliminary flags (config file, etc.) and auto-flag all fields`
 
-      This task will flag all data matching the criteria in the
-      configuration file, shadowed antennas, and the beginning and
-      ends of each scan.  It will interpolate through any channels
-      defined in the configuration file. Finally, it will run the
-      TFCROP automatic flagging algorithm on the raw data for all
-      fields.
+         This task will flag all data matching the criteria in the
+         configuration file, shadowed antennas, and the beginning and
+         ends of each scan.  It will interpolate through any channels
+         defined in the configuration file. Finally, it will run the
+         TFCROP automatic flagging algorithm on the raw data for all
+         fields.
 
    * `1. Auto-flag calibrator fields`
 
-      This task will run the RFLAG automatic flagging algorithm on the
-      calibrated data for all calibrator fields.
+         This task will run the RFLAG automatic flagging algorithm on
+         the calibrated data for all calibrator fields.
 
    * `2. Generate plotms figures for calibrator fields`
 
-      This task will generate diagnostic plots for every calibrator
-      field. The individual figures are saved in
-      `calibrator_figures/` and compiled in
-      `calibrator_figures.pdf`.
+         This task will generate diagnostic plots for every calibrator
+         field. The individual figures are saved in
+         `calibrator_figures/` and compiled in
+         `calibrator_figures.pdf`.
 
    * `3. Manually flag calibrator fields`
 
-      This task will allow the user to interactively generate the
-      PLOTMS figures and manually flag data in the calibrator
-      fields. To generate an interactive PLOTMS figure from
-      `calibrator_figures.pdf`, enter the Plot ID number at the
-      prompt.
+         This task will allow the user to interactively generate the
+         PLOTMS figures and manually flag data in the calibrator
+         fields. To generate an interactive PLOTMS figure from
+         `calibrator_figures.pdf`, enter the Plot ID number at the
+         prompt.
 
    * `4. Calculate and apply calibration solutions to calibrator fields`
 
-      This task will compute all calibration tables (flux, bandpass,
-      delays, gain) and apply those calibration solutions to the
-      calibrator fields. The calibration solution figures are saved in
-      `plotcal_figures` and compiled in `plotcal_figures.pdf`.
+         This task will compute all calibration tables (flux,
+         bandpass, delays, gain) and apply those calibration solutions
+         to the calibrator fields. The calibration solution figures
+         are saved in `plotcal_figures` and compiled in
+         `plotcal_figures.pdf`.
 
    * `5. Apply calibration solutions to science fields`
 
-      This task takes the calibration tables from the previous task
-      and applies them to the science (i.e. non-calibrator) fields.
+         This task takes the calibration tables from the previous task
+         and applies them to the science (i.e. non-calibrator) fields.
 
    * `6. Auto-flag science fields`
 
-      This task will run the RFLAG automatic flagging algorithm on the
-      calibrated data for all science fields.
+         This task will run the RFLAG automatic flagging algorithm on
+         the calibrated data for all science fields.
 
    * `7. Generate plotms figures for science fields`
 
-      This task will generate diagnostic plots for every science
-      field.  The individual figures are saved in
-      `scitarg_figures/` and compiled in
-      `science_figures.pdf`.
+         This task will generate diagnostic plots for every science
+         field.  The individual figures are saved in
+         `scitarg_figures/` and compiled in `science_figures.pdf`.
 
    * `8. Manually flag science fields`
 
-      This task will allow the user to interactively generate the
-      PLOTMS figures and manually flag data in the science fields. To
-      generate an interactive PLOTMS figure from
-      `science_figures.pdf`, enter the Plot ID number at the
-      prompt.
+         This task will allow the user to interactively generate the
+         PLOTMS figures and manually flag data in the science
+         fields. To generate an interactive PLOTMS figure from
+         `science_figures.pdf`, enter the Plot ID number at the
+         prompt.
 
    * `9. Split calibrated fields`
 
-      This task will split each calibrated field into a separated
-      measurement set named `<field_name>.ms`
+         This task will split each calibrated field into a separated
+         measurement set named `<field_name>.ms`
 
 * Or, pass the `auto` keyword to a string of comma separated menu
-numbers to automatically run those tasks:
-```python
-calibration.main(vis='my_data.ms', config_file='my_project.ini',
-                 auto='0,4,1,4,5,6,7')
-```
+  numbers to automatically run those tasks:
+  
+   ```python
+   calibration.main(vis='my_data.ms', config_file='my_project.ini',
+                    auto='0,4,1,4,5,6,7')
+   ```
 
 * Here is a typical recipe for calibrating a measurement set:
    * `0.` Preliminary flagging
@@ -206,122 +211,131 @@ Here is a short tutorial for imaging a measurement set with WISP.
 
 * In the directory containing the measurement set, link (or copy) the
   required WISP programs
-```bash
-ln -s /path/to/WISP/imaging.py .
-ln -s /path/to/WISP/unflag.py .
-ln -s /path/to/WISP/logging.conf .
-ln -s /path/to/WISP/config/my_project.ini .
-```
+
+   ```bash
+   ln -s /path/to/WISP/imaging.py .
+   ln -s /path/to/WISP/unflag.py .
+   ln -s /path/to/WISP/logging.conf .
+   ln -s /path/to/WISP/config/my_project.ini .
+   ```
 
 * Start *CASA*
-```bash
-/path/to/casa
-```
+
+   ```bash
+   /path/to/casa
+   ```
 
 * Import the WISP imaging pipeline. Note that some versions of
-CASA do not include the current directory (`.`) in the system path,
-so you may need to add it.
-```python
-import sys
-sys.path = ['.']+sys.path
-import imaging
-```
+  CASA do not include the current directory (`.`) in the system path,
+  so you may need to add it.
+
+   ```python
+   import sys
+   sys.path = ['.']+sys.path
+   import imaging
+   ```
 
 * You may wish to first check that the calibration pipeline did not
-automatically flag your bright spectral lines.
-```python
-plotms(vis='myfield.ms', xaxis='channel', yaxis='amp',
-       iteraxis='spw', coloraxis='baseline', avgtime='1e7',
-       correlation='RR, LL')
-```
-If you find that the bright spectral lines were flagged, you can
-use the `unflag` program to un-flag them:
-```python
-import unflag
-unflag.main('myfield',vis='myfield.ms', config_file='my_project.ini')
-```
+  automatically flag your bright spectral lines.
+
+   ```python
+   plotms(vis='myfield.ms', xaxis='channel', yaxis='amp',
+          iteraxis='spw', coloraxis='baseline', avgtime='1e7',
+          correlation='RR, LL')
+   ```
+
+   If you find that the bright spectral lines were flagged, you can
+   use the `unflag` program to un-flag them:
+   
+   ```python
+   import unflag
+   unflag.main('myfield',vis='myfield.ms', config_file='my_project.ini')
+   ```
 
 * If you are imaging a measurement set of a split field (i.e. like
-those generated by the calibration pipeline), then it is convenient to
-define a `field` variable like so. Run the WISP imaging pipeline for
-your measurement set, field, and project configuration file
-```python
-field='myfieldname'
-imaging.main(field, vis=field+'.ms', config_file='my_project.ini')
-```
+  those generated by the calibration pipeline), then it is convenient to
+  define a `field` variable like so. Run the WISP imaging pipeline for
+  your measurement set, field, and project configuration file
+
+   ```python
+   field='myfieldname'
+   imaging.main(field, vis=field+'.ms', config_file='my_project.ini')
+   ```
 
 * Select the required imaging tasks from the menu:
 
    * `0. Dirty image combined continuum spws (MFS; multi-term; multi-scale)`
 
-      Generate a dirty image of the combined continuum spectral
-      windows using multi-frequency synthesis, multi-term, and
-      multi-scale TCLEAN.
+         Generate a dirty image of the combined continuum spectral
+         windows using multi-frequency synthesis, multi-term, and
+         multi-scale TCLEAN.
 
    * `1. Autoclean combined continuum spws (MFS; multi-term; multi-scale)`
 
-      Use auto-multithresh to automatically clean the above image.
+         Use auto-multithresh to automatically clean the above image.
 
    * `2. Dirty image each continuum spw (MFS; multi-scale)`
 
-      Generate a multi-frequency synthesis, multi-scale TCLEAN
-      dirty image of each individual continuum spectral window.
+         Generate a multi-frequency synthesis, multi-scale TCLEAN
+         dirty image of each individual continuum spectral window.
 
    * `3. Autoclean each continuum spw (MFS; multi-scale)`
 
-      Use auto-multithresh to automatically clean the above images.
+         Use auto-multithresh to automatically clean the above images.
 
    * `4. Dirty image each continuum spw (channel; multi-scale)`
 
-      Generate a multi-scale TCLEAN dirty data cube for each continuum
-      spectral window.
+         Generate a multi-scale TCLEAN dirty data cube for each
+         continuum spectral window.
 
    * `5. Autoclean each continuum spw (channel; multi-scale)`
 
-      Use auto-multithresh to automatically clean the above cubes.
+         Use auto-multithresh to automatically clean the above cubes.
 
    * `6. Dirty image each line spw (MFS; multi-scale)`
 
-      Generate a multi-frequency synthesis, multi-scale TCLEAN
-      dirty image of each individual line spectral window.
+         Generate a multi-frequency synthesis, multi-scale TCLEAN
+         dirty image of each individual line spectral window.
       
    * `7. Autoclean each line spw (MFS; multi-scale)`
 
-      Use auto-multithresh to automatically clean the above images.
+         Use auto-multithresh to automatically clean the above images.
 
    * `8. Dirty image each line spw (channel; multi-scale)`
 
-      Generate a multi-scale TCLEAN dirty data cube for each line
-      spectral window.
+         Generate a multi-scale TCLEAN dirty data cube for each line
+         spectral window.
 
    * `9. Autoclean each line spw (channel; multi-scale)`
 
-      Use auto-multithresh to automatically clean the above cubes.
+         Use auto-multithresh to automatically clean the above cubes.
 
    * `10. Generate continuum and line diagnostic plots`
 
-      Generate figures for each continuum and spectral line
-      image, then compile those figures into `<field>.contplots.pdf`
-      and `<field>.lineplots.pdf`.
+         Generate figures for each continuum and spectral line image,
+         then compile those figures into `<field>.contplots.pdf` and
+         `<field>.lineplots.pdf`.
 
 * Or, pass the `auto` keyword to a string of comma separated menu
-numbers to automatically run those tasks:
-```python
-imaging.main(field, vis=field+'.ms', config_file='my_project.ini',
-             auto='0,1,2,3,6,7,8,9,10')
-```
+   numbers to automatically run those tasks:
+
+   ```python
+   imaging.main(field, vis=field+'.ms', config_file='my_project.ini',
+                auto='0,1,2,3,6,7,8,9,10')
+   ```
 
 * Here is a recipe for imaging both the continuum and line spectral
-windows for a measurement set, re-gridding the velocity axis of the
-line spectral windows to a common velocity frame, and generating both
-non-uv-tapered and uv-tapered images:
-```python
-field='myfield'
-imaging.main(field, vis=field+'.ms', config_file='my_project.ini',
-             regrid=True, uvtaper=False, auto='0,1,2,3,6,7,8,9,10')
-imaging.main(field, vis=field+'.ms', config_file='my_project.ini',
-             regrid=True, uvtaper=True, auto='0,1,2,3,6,7,8,9,10')
-```
+  windows for a measurement set, re-gridding the velocity axis of the
+  line spectral windows to a common velocity frame, and generating both
+  non-uv-tapered and uv-tapered images:
+
+   ```python
+   field='myfield'
+   imaging.main(field, vis=field+'.ms', config_file='my_project.ini',
+                regrid=True, uvtaper=False, auto='0,1,2,3,6,7,8,9,10')
+   imaging.main(field, vis=field+'.ms', config_file='my_project.ini',
+                regrid=True, uvtaper=True, auto='0,1,2,3,6,7,8,9,10')
+   ```
 
 ## Configuration File
 
@@ -363,6 +377,7 @@ Here we explain each of the available parameters.
    and a2 are the spectral index coefficients. If you wish to define
    flux models for multiple flux calibrators, do so by listing
    the values on new lines. For example
+   
    ```bash
    Name                        = 3C48
                                  3C286
@@ -373,6 +388,7 @@ Here we explain each of the available parameters.
    Spectral Index Coefficients = 26.3,-8.2,1.5
                                  40.2,-10.7,0.9
    ```
+   
    * Name
 
       The calibrator field name for which this flux model should be
@@ -397,6 +413,7 @@ Here we explain each of the available parameters.
    Here we define which spectral windows should be used for
    spectral line analyses and which should be used for continuum
    analyses. The spectral windows are comma-separated. For example:
+   
    ```bash
    Line      = 2,5,8,11,14,17,21,22
    Continuum = 0,1,3,4,6,7,9,10,12,13,15,16,18,19,20,23
@@ -447,6 +464,7 @@ Here we explain each of the available parameters.
    Define channels containing known bad data which should be
    overwritten with interpolated data. Values should be comma-separated,
    for example:
+   
    ```bash
    Line Channels      = 256,512
    Continuum Channels = 2,5,10
@@ -465,6 +483,7 @@ Here we explain each of the available parameters.
    Define the number of channels to be averaged when computing
    bandpass calibration solutions. An empty value means use no
    channel averaging. For example:
+   
    ```bash
    Line Channels      = 16
    Continuum Channels =
@@ -485,6 +504,7 @@ Here we explain each of the available parameters.
    TCLEAN](https://casa.nrao.edu/docs/taskref/tclean-task.html).
    Below we describe only those not listed in the TCLEAN documentation.
    Multiple values should be comma-separated, for example:
+   
    ```bash
    restfreqs = 8045.605MHz,8309.385MHz,8584.823MHz
    imsize    = 600,600
@@ -546,6 +566,7 @@ Here we explain each of the available parameters.
    automatically un-flagged when the automatic flagging algorithms
    unintentionally flag bright spectral lines. Multiple values
    are comma-separated, for example:
+   
    ```bash
    offset = 20,20,15,15,15,10,5,0
    width  = 100
