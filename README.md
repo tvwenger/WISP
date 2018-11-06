@@ -58,6 +58,7 @@ of WISP.
 ## Requirements
 
 * Latest version of [*CASA*](https://casa.nrao.edu/)
+* LaTeX installation with the available command ```pdflatex```
 
 Note: The `matplotlib` and `astropy` packages included with *CASA*
 are very out of date (at least in *CASA* version 5.1.2). You may need
@@ -102,12 +103,92 @@ import calibration
 calibration.main(vis='my_data.ms', config_file='my_project.ini')
 ```
 
+* Select the required calibration tasks from the menu:
+
+   * 0. Preliminary flags (config file, etc.) and auto-flag all fields
+
+   This task will flag all data matching the criteria in the
+   configuration file, shadowed antennas, and the beginning and ends
+   of each scan.  It will interpolate through any channels defined in
+   the configuration file. Finally, it will run the TFCROP automatic
+   flagging algorithm on the raw data for all fields.
+
+   * 1. Auto-flag calibrator fields
+
+   This task will run the RFLAG automatic flagging algorithm on the
+   calibrated data for all calibrator fields.
+
+   * 2. Generate plotms figures for calibrator fields
+
+   This task will generate diagnostic plots for every calibrator
+   field. The individual figures are saved in
+   ```calibrator_figures/``` and compiled in
+   ```calibrator_figures.pdf```.
+
+   * 3. Manually flag calibrator fields
+
+   This task will allow the user to interactively generate the PLOTMS
+   figures and manually flag data in the calibrator fields. To
+   generate an interactive PLOTMS figure from
+   ```calibrator_figures.pdf```, enter the Plot ID number at the
+   prompt.
+
+   * 4. Calculate and apply calibration solutions to calibrator fields
+
+   This task will compute all calibration tables (flux, bandpass,
+   delays, gain) and apply those calibration solutions to the
+   calibrator fields. The calibration solution figures are saved in
+   ```plotcal_figures``` and compiled in ```plotcal_figures.pdf```.
+
+   * 5. Apply calibration solutions to science fields
+
+   This task takes the calibration tables from the previous task and
+   applies them to the science (i.e. non-calibrator) fields.
+
+   * 6. Auto-flag science fields
+
+   This task will run the RFLAG automatic flagging algorithm on
+   the calibrated data for all science fields.
+
+   * 7. Generate plotms figures for science fields
+
+   This task will generate diagnostic plots for every science field.
+   The individual figures are saved in ```scitarg_figures/``` and
+   compiled in ```science_figures.pdf```.
+
+   * 8. Manually flag science fields
+
+   This task will allow the user to interactively generate the PLOTMS
+   figures and manually flag data in the science fields. To generate
+   an interactive PLOTMS figure from ```science_figures.pdf```, enter
+   the Plot ID number at the prompt.
+
+   * 9. Split calibrated fields
+
+   This task will split each calibrated field into a separated
+   measurement set named ```<field_name>.ms```
+
 * Select the required calibration tasks from the menu, or automatically
-  run these steps via
+  run several steps via
 ```python
 calibration.main(vis='my_data.ms', config_file='my_project.ini',
                  auto='0,4,1,4,5,6,7')
 ```
+
+* Here is a typical recipe for calibrating a measurement set:
+   * 0. Preliminary flagging
+   * 4. Compute calibration solutions and apply to calibrators
+   * 1. Auto-flag calibrators
+   * 4. Re-compute calibration solutions
+   * 2. Generate diagnostic plots for calibrators
+   * 3. Manually-flag calibrators
+   * Repeat 4, 2, 3 until all bad data are flagged and calibration
+     solutions look good.
+   * 5. Calibrate science fields
+   * 6. Auto-flag science fields
+   * 7. Generate diagnostic plots for science fields
+   * 8. Manually flag science fields
+   * 9. Split all fields
 
 ## Imaging Quick-Start
 
@@ -358,7 +439,6 @@ Here we explain each of the available parameters.
 
       The total number of channels centered on the given channel to
       be un-flagged.
-
 
 ## Calibration Pipeline
 Here are specific details about the calibration pipeline

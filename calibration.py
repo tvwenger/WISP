@@ -228,13 +228,13 @@ def setup(vis='',config=None):
     #
     # create directories for figures
     #
-    if not os.path.isdir('calib_figures'):
-        logger.info("Creating calib_figures directory...")
-        os.makedirs('calib_figures')
+    if not os.path.isdir('calibrator_figures'):
+        logger.info("Creating calibrator_figures directory...")
+        os.makedirs('calibrator_figures')
         logger.info("Done.")
-    if not os.path.isdir('scitarg_figures'):
-        logger.info("Creating scitarg_figures directory...")
-        os.makedirs('scitarg_figures')
+    if not os.path.isdir('science_figures'):
+        logger.info("Creating science_figures directory...")
+        os.makedirs('science_figures')
         logger.info("Done.")
     if not os.path.isdir('plotcal_figures'):
         logger.info("Creating plotcal_figures directory...")
@@ -522,7 +522,7 @@ def gen_calibrator_plots(vis='',primary_cals=[],secondary_cals=[],
                     ydatacolumn=datacolumn, iteraxis='spw', 
                     coloraxis='baseline', correlation=config.get('Polarization', 'Polarization'), 
                     title='PlotID: {0} Field: {1}'.format(plotnum, field), 
-                    plotfile='calib_figures/{0}.png'.format(plotnum), 
+                    plotfile='calibrator_figures/{0}.png'.format(plotnum), 
                     overwrite=True, showgui=False, exprange='all')
         plots.append({'field':field, 'xaxis':'amp', 'yaxis':'phase', 'avgtime':'', 'avgchannel':''})
         plotnum += 1
@@ -533,7 +533,7 @@ def gen_calibrator_plots(vis='',primary_cals=[],secondary_cals=[],
                     ydatacolumn=datacolumn, iteraxis='spw', 
                     coloraxis='baseline', correlation=config.get('Polarization', 'Polarization'), 
                     title='PlotID: {0} Field: {1}'.format(plotnum, field), 
-                    plotfile='calib_figures/{0}.png'.format(plotnum), 
+                    plotfile='calibrator_figures/{0}.png'.format(plotnum), 
                     overwrite=True, showgui=False, exprange='all')
         plots.append({'field':field, 'xaxis':'uvwave', 'yaxis':'amp', 'avgtime':'', 'avgchannel':''})
         plotnum += 1
@@ -545,7 +545,7 @@ def gen_calibrator_plots(vis='',primary_cals=[],secondary_cals=[],
                     coloraxis='baseline', correlation=config.get('Polarization', 'Polarization'), 
                     title='PlotID: {0} Field: {1}'.format(plotnum, field), 
                     avgchannel='1e7', 
-                    plotfile='calib_figures/{0}.png'.format(plotnum), 
+                    plotfile='calibrator_figures/{0}.png'.format(plotnum), 
                     overwrite=True, showgui=False, exprange='all')
         plots.append({'field':field, 'xaxis':'time', 'yaxis':'amp', 'avgtime':'', 'avgchannel':'1e7'})
         plotnum += 1
@@ -557,7 +557,7 @@ def gen_calibrator_plots(vis='',primary_cals=[],secondary_cals=[],
                     coloraxis='baseline', correlation=config.get('Polarization', 'Polarization'), 
                     title='PlotID: {0} Field: {1}'.format(plotnum, field), 
                     avgchannel='1e7', 
-                    plotfile='calib_figures/{0}.png'.format(plotnum), 
+                    plotfile='calibrator_figures/{0}.png'.format(plotnum), 
                     overwrite=True, showgui=False, exprange='all')
         plots.append({'field':field, 'xaxis':'time', 'yaxis':'phase', 'avgtime':'', 'avgchannel':'1e7'})
         plotnum += 1
@@ -569,7 +569,7 @@ def gen_calibrator_plots(vis='',primary_cals=[],secondary_cals=[],
                     coloraxis='baseline', correlation=config.get('Polarization', 'Polarization'), 
                     title='PlotID: {0} Field: {1}'.format(plotnum, field), 
                     avgtime='1e7', 
-                    plotfile='calib_figures/{0}.png'.format(plotnum), 
+                    plotfile='calibrator_figures/{0}.png'.format(plotnum), 
                     overwrite=True, showgui=False, exprange='all')
         plots.append({'field':field, 'xaxis':'channel', 'yaxis':'amp', 'avgtime':'1e7', 'avgchannel':''})
         plotnum += 1
@@ -581,7 +581,7 @@ def gen_calibrator_plots(vis='',primary_cals=[],secondary_cals=[],
                     coloraxis='baseline', correlation=config.get('Polarization', 'Polarization'), 
                     title='PlotID: {0} Field: {1}'.format(plotnum, field), 
                     avgtime='1e7', 
-                    plotfile='calib_figures/{0}.png'.format(plotnum), 
+                    plotfile='calibrator_figures/{0}.png'.format(plotnum), 
                     overwrite=True, showgui=False, exprange='all')
         plots.append({'field':field, 'xaxis':'channel', 'yaxis':'phase', 'avgtime':'1e7', 'avgchannel':''})
         plotnum += 1
@@ -600,7 +600,7 @@ def gen_calibrator_plots(vis='',primary_cals=[],secondary_cals=[],
         f.write(r"\begin{figure}"+"\n")
         f.write(r"\centering"+"\n")
         for plotnum in range(num_plots):
-            fnames=glob.glob("calib_figures/{0}_*.png".format(plotnum))
+            fnames=glob.glob("calibrator_figures/{0}_*.png".format(plotnum))
             fnames = natural_sort(fnames)
             for fname in fnames:
                 if iplot > 0 and iplot % 6 == 0:
@@ -1330,7 +1330,7 @@ def gen_sciencetarget_plots(vis='', science_targets=[], config=None):
                     ydatacolumn=datacolumn, iteraxis='spw', 
                     coloraxis='baseline', correlation=config.get('Polarization', 'Polarization'), 
                     title='PlotID: {0} Field: {1}'.format(plotnum, field), 
-                    plotfile='scitarg_figures/{0}.png'.format(plotnum), 
+                    plotfile='science_figures/{0}.png'.format(plotnum), 
                     overwrite=True, showgui=False, exprange='all')
         plots.append({'field':field, 'xaxis':'uvwave', 'yaxis':'amp', 'avgtime':'', 'avgchannel':''})
         plotnum += 1
@@ -1342,7 +1342,7 @@ def gen_sciencetarget_plots(vis='', science_targets=[], config=None):
                     coloraxis='baseline', correlation=config.get('Polarization', 'Polarization'), 
                     title='PlotID: {0} Field: {1}'.format(plotnum, field), 
                     avgchannel='1e7', 
-                    plotfile='scitarg_figures/{0}.png'.format(plotnum), 
+                    plotfile='science_figures/{0}.png'.format(plotnum), 
                     overwrite=True, showgui=False, exprange='all')
         plots.append({'field':field, 'xaxis':'time', 'yaxis':'amp', 'avgtime':'', 'avgchannel':'1e7'})
         plotnum += 1
@@ -1354,7 +1354,7 @@ def gen_sciencetarget_plots(vis='', science_targets=[], config=None):
                     coloraxis='baseline', correlation=config.get('Polarization', 'Polarization'), 
                     title='PlotID: {0} Field: {1}'.format(plotnum, field), 
                     avgtime='1e7', 
-                    plotfile='scitarg_figures/{0}.png'.format(plotnum), 
+                    plotfile='science_figures/{0}.png'.format(plotnum), 
                     overwrite=True, showgui=False, exprange='all')
         plots.append({'field':field, 'xaxis':'channel', 'yaxis':'amp', 'avgtime':'1e7', 'avgchannel':''})
         plotnum += 1
@@ -1365,7 +1365,7 @@ def gen_sciencetarget_plots(vis='', science_targets=[], config=None):
     logger.info("Generating tex document...")
     num_plots = plotnum
     iplot = 0
-    with open('scitarg_figures.tex', 'w') as f:
+    with open('science_figures.tex', 'w') as f:
         f.write(r"\documentclass{article}"+"\n")
         f.write(r"\usepackage{graphicx}"+"\n")
         f.write(r"\usepackage[margin=0.1cm]{geometry}"+"\n")
@@ -1373,7 +1373,7 @@ def gen_sciencetarget_plots(vis='', science_targets=[], config=None):
         f.write(r"\begin{figure}"+"\n")
         f.write(r"\centering"+"\n")
         for plotnum in range(num_plots):
-            fnames=glob.glob("scitarg_figures/{0}_*.png".format(plotnum))
+            fnames=glob.glob("science_figures/{0}_*.png".format(plotnum))
             fnames = natural_sort(fnames)
             for fname in fnames:
                 if iplot > 0 and iplot % 6 == 0:
@@ -1389,13 +1389,13 @@ def gen_sciencetarget_plots(vis='', science_targets=[], config=None):
                 iplot+=1
         f.write(r"\end{figure}"+"\n")
         f.write(r"\end{document}"+"\n")
-    os.system('pdflatex -interaction=batchmode scitarg_figures.tex')
+    os.system('pdflatex -interaction=batchmode science_figures.tex')
     logger.info("Done.")
     #
     # Save the plot list to the pickle object
     #
     logger.info("Saving plot list to pickle...")
-    with open('scitarg_plots.pkl', 'w') as f:
+    with open('science_plots.pkl', 'w') as f:
         pickle.dump(plots, f)
     logger.info("Done.")
 
@@ -1428,14 +1428,14 @@ def manual_flag_sciencetargets(vis='', science_targets=[], config=None):
     # Read plot list from pickle object
     #
     logger.info("Reading plot list from pickle...")
-    with open("scitarg_plots.pkl","r") as f:
+    with open("science_plots.pkl","r") as f:
         plots = pickle.load(f)
     num_plots = len(plots)
     logger.info("Done.")
     #
     # Prompt user with menu
     #
-    logger.info("Please inspect scitarg_plots.pdf then perform manual flagging.")
+    logger.info("Please inspect science_plots.pdf then perform manual flagging.")
     while True:
         print("f - flag some data")
         print("plot id number - generate interactive version of plot with this id")
@@ -1558,15 +1558,15 @@ def main(vis='', config_file='', calwt=True, auto=''):
     auto_ind = 0
     while True:
         if len(auto) == 0:
-            print("0. Flag from configuration file, qvack, shadowed antennas, and tfcrop (auto-flag) all fields")
-            print("1. Auto-flag calibrators")
-            print("2. Generate plotms figures for calibrators")
-            print("3. Manually flag calibrators")
-            print("4. Calculate and apply calibration solutions to calibrators")
-            print("5. Apply calibration solutions to science targets")
-            print("6. Auto-flag science targets")
-            print("7. Generate plotms figures for science targets")
-            print("8. Manually flag science targets")
+            print("0. Preliminary flags (config file, etc.) and auto-flag all fields")
+            print("1. Auto-flag calibrator fields")
+            print("2. Generate plotms figures for calibrator fields")
+            print("3. Manually flag calibrator fields")
+            print("4. Calculate and apply calibration solutions to calibrator fields")
+            print("5. Apply calibration solutions to science fields")
+            print("6. Auto-flag science fields")
+            print("7. Generate plotms figures for science fields")
+            print("8. Manually flag science fields")
             print("9. Split calibrated fields")
             print("q [quit]")
             answer = raw_input("> ")
