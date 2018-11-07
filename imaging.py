@@ -127,9 +127,9 @@ def setup(vis='', uvtaper=False, config=None):
     else:
         cp["outertaper"] = []
     # re-grid info
-    velstart = config.getfloat("Clean", "velstart")
+    velstart = config.getfloat("Clean", "start")
     cp["velstart"] = "{0}km/s".format(velstart)
-    chanwidth = config.getfloat("Clean", "chanwidth")
+    chanwidth = config.getfloat("Clean", "width")
     cp["chanwidth"] = "{0}km/s".format(chanwidth)
     cp["nchan"] = config.getint("Clean", "nchan")
     cp["chanbuffer"] = config.getint("Clean", "chanbuffer")

@@ -506,6 +506,7 @@ Here we explain each of the available parameters.
    Multiple values should be comma-separated, for example:
    
    ```bash
+   lineids   = H93a,H92a,H91a
    restfreqs = 8045.605MHz,8309.385MHz,8584.823MHz
    imsize    = 600,600
    pblimit   = 0.1
@@ -533,9 +534,16 @@ Here we explain each of the available parameters.
       The continuum spectral window channel to use for wideband
       primary beam correction.
 
+   * lineids
+
+     A name for each spectral line transition. Comma-separate
+     multiple transitions. There needs to be one for each restfreq.
+
    * restfreqs
 
       The rest frequency (with units) for each line spectral window.
+      Comma-separate multiple transitions. There needs to be one for
+      each lineid.
 
    * chanbuffer
 
