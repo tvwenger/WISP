@@ -593,10 +593,18 @@ Here we explain each of the available parameters.
       be un-flagged.
 
 ## Calibration Pipeline
-Here are specific details about the calibration pipeline (under construction)
+
+This section is still under construction. In the meantime, you can
+review the arguments and functionality of the WISP calibration
+pipeline by looking through the documentation within the code.
+Start with the `main` function.
 
 ## Imaging Pipeline
-Here are specific details about the imaging pipeline (under construction)
+
+This section is still under construction. In the meantime, you can
+review the arguments and functionality of the WISP imaging pipeline by
+looking through the documentation within the code. Start with the
+`main` function.
 
 ## License and Copyright
 
