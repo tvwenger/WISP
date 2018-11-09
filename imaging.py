@@ -29,6 +29,7 @@ Trey V. Wenger November 2018 - V1.0
 import __main__ as casa
 import os
 import gc
+import re
 import numpy as np
 import glob
 import logging
