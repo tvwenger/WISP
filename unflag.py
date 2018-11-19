@@ -80,8 +80,8 @@ def setup(vis='',config=None):
     #
     # Get Unflag parameters from configuration file
     #
-    chan_offset = np.array([int(c) for c in config.get("Unflag","chan_offset").split(',')])
-    chan_width = config.getint("Unflag","chan_width")
+    chan_offset = np.array([int(c) for c in config.get("Unflag","offset").split(',')])
+    chan_width = config.getint("Unflag","width")
     return (my_cont_spws,my_line_spws,chan_offset,chan_width)
 
 def main(field,vis='',config_file=''):
