@@ -306,7 +306,7 @@ def preliminary_flagging(vis='', my_line_spws='', my_cont_spws='',
     # Flag scans from configuration file
     #
     scan = config.get("Flags", "Scan")
-    if antenna != '':
+    if scan != '':
         logger.info("Flagging scans from configuration file: {0}".format(scan))
         casa.flagdata(vis=vis, mode='manual', scan=scan,
                       flagbackup=False, extendflags=False)
