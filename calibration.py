@@ -24,6 +24,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Changelog:
 Trey V. Wenger November 2018 - V1.0
+
+Trey V. Wenger December 2018 - V1.1
+    Removed TFCROP - it was causing problems with VLA data.
+    Added preliminary scan flagging, extend flags, and tunable
+    parameters for shadow tolerance and quack interval.
+    Added opacity, gaincurve, and antenna position calibrations.
+    Changed plotcal figures to use plotms for generation.
 """
 
 import __main__ as casa
@@ -38,14 +45,7 @@ import logging.config
 import ConfigParser
 import gc
 
-__version__ = "1.0"
-
-# Need to get CASA cptool and tptools
-# for making plotcal plots
-from taskinit import cptool,tptool
-plotcal_cp=cptool()
-plotcal_tp=tptool()
-plotcal_tp.setgui(False)
+__version__ = "1.1"
 
 # load logging configuration file
 logging.config.fileConfig('logging.conf')
@@ -244,11 +244,12 @@ def setup(vis='',config=None):
             secondary_cals, science_targets, refant)
 
 def preliminary_flagging(vis='', my_line_spws='', my_cont_spws='',
+                         shadow_tolerance=0.0, quackinterval=6.0,
                          config=None):
     """
     Perform preliminary flagging: shadowed antennas, quack,
     flags from configuration file, interpolations from configuration
-    file, then tfcrop all raw data
+    file, then extend flags as necessary.
 
     Inputs: vis, my_line_spws, my_cont_spws, config
       vis :: string
@@ -257,6 +258,14 @@ def preliminary_flagging(vis='', my_line_spws='', my_cont_spws='',
         comma-separated string of line spws
       my_cont_spws :: string
         comma-separated string of continuum spws
+      shadow_tolerance :: scalar
+        The overlap tolerance used for shadow flagging. Flag
+        any data with projected baseline separation less than
+        r_1 + r_2 - shadow_tolerance
+        where r_1 and r_2 are the radii of the antennas.
+      quackinterval :: scalar
+        The amount of time in seconds to flag at the beginning
+        of each scan.
       config :: a ConfigParser object
         The ConfigParser object for this project
 
@@ -283,16 +292,25 @@ def preliminary_flagging(vis='', my_line_spws='', my_cont_spws='',
     # Flag shadowed antennas
     #
     logger.info("Flagging shadowed antennas...")
-    casa.flagdata(vis=vis, mode='shadow', tolerance=-3.0,
+    casa.flagdata(vis=vis, mode='shadow', tolerance=shadow_tolerance,
                   flagbackup=False, extendflags=False)
     logger.info("Done.")
     #
     # Flag the beginning of each scan
     #
     logger.info("Flagging the beginning of each scan (quack)...")
-    casa.flagdata(vis=vis, mode='quack', quackinterval=6,
+    casa.flagdata(vis=vis, mode='quack', quackinterval=quackinterval,
                   flagbackup=False, extendflags=False)
     logger.info("Done.")
+    #
+    # Flag scans from configuration file
+    #
+    scan = config.get("Flags", "Scan")
+    if antenna != '':
+        logger.info("Flagging scans from configuration file: {0}".format(scan))
+        casa.flagdata(vis=vis, mode='manual', scan=scan,
+                      flagbackup=False, extendflags=False)
+        logger.info("Done.")
     #
     # Flag antennas from configuration file
     #
@@ -395,12 +413,14 @@ def preliminary_flagging(vis='', my_line_spws='', my_cont_spws='',
             foo = 0
             gc.collect()
     #
-    # Run tfcrop on all fields
+    # Extend the flags
     #
-    logger.info("Running tfcrop on raw data column...")
-    casa.flagdata(vis=vis, mode='tfcrop', timefit='poly', freqfit='poly',
-                  flagbackup=False, datacolumn='data', extendflags=False)
+    logger.info("Extending flags...")
+    casa.flagdata(vis=vis, mode='extend', extendpols=True,
+                  growtime=80.0, growfreq=50.0, growaround=True,
+                  flagbackup=False)
     logger.info("Done.")
+    
     #
     # Save the flags
     #
@@ -412,7 +432,7 @@ def preliminary_flagging(vis='', my_line_spws='', my_cont_spws='',
 def auto_flag_calibrators(vis='', primary_cals=[], secondary_cals=[]):
     """
     Perform automatic flagging of calibrators using rflag on
-    calibrated data or tfcrop on raw data
+    calibrated data, then extend the flags as necessary.
 
     Inputs: vis, primary_cals, secondary_cals
       vis :: string
@@ -436,30 +456,25 @@ def auto_flag_calibrators(vis='', primary_cals=[], secondary_cals=[]):
     logger.info("Checking if ms contains corrected data column...")
     stat = casa.visstat(vis=vis, field=field, spw='0', datacolumn='corrected')
     if stat is None:
-        logger.info("Done. ms does not contain corrected data column.")
-        datacolumn='data'
-    else:
-        logger.info("Done. ms does contain corrected data column.")
-        datacolumn='corrected'
+        logger.critical("Done. ms does not contain corrected data column. Skipping.")
+        return
+    logger.info("Done. ms does contain corrected data column.")
     #
     # Run rflag on calibrated data
     #
-    if datacolumn == 'corrected':
-        logger.info("Running rflag on corrected data column...")
-        casa.flagdata(vis=vis, mode='rflag', field=field,
-                      flagbackup=False, datacolumn=datacolumn,
-                      extendflags=False)
-        logger.info("Done.")
+    logger.info("Running rflag on corrected data column...")
+    casa.flagdata(vis=vis, mode='rflag', field=field,
+                  flagbackup=False, datacolumn='corrected',
+                  extendflags=False)
+    logger.info("Done.")
     #
-    # Run tfcrop on uncalibrated data
+    # Extend the flags
     #
-    else:
-        logger.info("Running tfcrop on raw data column...")
-        casa.flagdata(vis=vis, mode='tfcrop', field=field,
-                      timefit='poly', freqfit='poly',
-                      flagbackup=False, datacolumn='data',
-                      extendflags=False)
-        logger.info("Done.")
+    logger.info("Extending flags...")
+    casa.flagdata(vis=vis, mode='extend', extendpols=True,
+                  growtime=80.0, growfreq=50.0, growaround=True,
+                  flagbackup=False)
+    logger.info("Done.")
     #
     # Save the flags
     #
@@ -891,7 +906,6 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     if config is None:
         logger.critical("Error: Need to supply a config")
         raise ValueError("Config is None")
-    plotcal_figures = []
     #
     # set the model for the flux calibrators
     #
@@ -996,27 +1010,12 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     #
     # Generate phase_int.Gcal0 plots
     #
-    plotcal_cp.open('phase_int.Gcal0')
-    for spw in my_cont_spws.split(',')+my_line_spws.split(','):
-        try:
-            plotcal_cp.selectcal(spw=spw)
-        except RuntimeError:
-            logger.warn("spw {0} not found!".format(spw))
-            continue
-        plotcal_cp.plotoptions(subplot=111, overplot=False,
-                               iteration='antenna', plotrange=[0,0,-180,180],
-                               showflags=False)
-        plotcal_cp.plot('time', 'phase')
-        plotcal_ind = 0
-        fname = 'plotcal_figures/phase_int0_spw{0}_ant{1}.png'.format(spw,plotcal_ind)
-        plotcal_cp.savefig(fname)
-        if os.path.exists(fname): plotcal_figures.append(fname)
-        plotcal_ind = plotcal_ind + 1
-        while plotcal_cp.next():
-            fname = 'plotcal_figures/phase_int0_spw{0}_ant{1}.png'.format(spw,plotcal_ind)
-            plotcal_cp.savefig(fname)
-            if os.path.exists(fname): plotcal_figures.append(fname)
-            plotcal_ind = plotcal_ind + 1
+    casa.plotms(vis='phase_int.Gcal0', xaxis='time', yaxis='phase',
+                field=field, iteraxis='spw',
+                coloraxis='antenna',
+                title='Phase GCal (integration; pre-bandpass)',
+                plotfile='plotcal_figures/0_phase_int.Gcal0.png',
+                overwrite=True, showgui=False, exprange='all')
     #
     # bandpass calibration for continuum spws. Combine all scans,
     # average some channels as defined in configuration file
@@ -1054,27 +1053,12 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     #
     # Generate bandpass.Bcal plots
     #
-    plotcal_cp.open('bandpass.Bcal')
-    for spw in my_cont_spws.split(',')+my_line_spws.split(','):
-        try:
-            plotcal_cp.selectcal(spw=spw)
-        except RuntimeError:
-            logger.warn("spw {0} not found!".format(spw))
-            continue
-        plotcal_cp.plotoptions(subplot=111, overplot=False,
-                               iteration='antenna', plotrange=[0,0,0,0],
-                               showflags=False)
-        plotcal_cp.plot('chan', 'amp')
-        plotcal_ind = 0
-        fname = 'plotcal_figures/bandpass_spw{0}_ant{1}.png'.format(spw,plotcal_ind)
-        plotcal_cp.savefig(fname)
-        if os.path.exists(fname): plotcal_figures.append(fname)
-        plotcal_ind = plotcal_ind + 1
-        while plotcal_cp.next():
-            fname = 'plotcal_figures/bandpass_spw{0}_ant{1}.png'.format(spw,plotcal_ind)
-            plotcal_cp.savefig(fname)
-            if os.path.exists(fname): plotcal_figures.append(fname)
-            plotcal_ind = plotcal_ind + 1
+    casa.plotms(vis='bandpass.Bcal', xaxis='channel', yaxis='amplitude',
+                field=field, iteraxis='spw',
+                coloraxis='antenna',
+                title='Bandpass BCal',
+                plotfile='plotcal_figures/1_bandpass.Bcal.png',
+                overwrite=True, showgui=False, exprange='all')
     #
     # integration timescale phase corrections for all calibrators
     # required for accurate amplitude calibration
@@ -1094,27 +1078,12 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     #
     # Generate phase_int.Gcal1 plots
     #
-    plotcal_cp.open('phase_int.Gcal1')
-    for spw in my_cont_spws.split(',')+my_line_spws.split(','):
-        try:
-            plotcal_cp.selectcal(spw=spw)
-        except RuntimeError:
-            logger.warn("spw {0} not found!".format(spw))
-            continue
-        plotcal_cp.plotoptions(subplot=111, overplot=False,
-                               iteration='antenna', plotrange=[0,0,-180,180],
-                               showflags=False)
-        plotcal_cp.plot('time','phase')
-        plotcal_ind = 0
-        fname = 'plotcal_figures/phase_int1_spw{0}_ant{1}.png'.format(spw,plotcal_ind)
-        plotcal_cp.savefig(fname)
-        if os.path.exists(fname): plotcal_figures.append(fname)
-        plotcal_ind = plotcal_ind + 1
-        while plotcal_cp.next():
-            fname = 'plotcal_figures/phase_int1_spw{0}_ant{1}.png'.format(spw,plotcal_ind)
-            plotcal_cp.savefig(fname)
-            if os.path.exists(fname): plotcal_figures.append(fname)
-            plotcal_ind = plotcal_ind + 1
+    casa.plotms(vis='phase_int.Gcal1', xaxis='time', yaxis='phase',
+                field=field, iteraxis='spw',
+                coloraxis='antenna',
+                title='Phase GCal (integration; post-bandpass)',
+                plotfile='plotcal_figures/2_phase_int.Gcal1.png',
+                overwrite=True, showgui=False, exprange='all')
     #
     # scan timescale phase corrections for all calibrators
     # required to apply to science targets
@@ -1133,27 +1102,12 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     #
     # Generate phase_scan.Gcal plots
     #
-    plotcal_cp.open('phase_scan.Gcal')
-    for spw in my_cont_spws.split(',')+my_line_spws.split(','):
-        try:
-            plotcal_cp.selectcal(spw=spw)
-        except RuntimeError:
-            logger.warn("spw {0} not found!".format(spw))
-            continue
-        plotcal_cp.plotoptions(subplot=111, overplot=False,
-                               iteration='antenna', plotrange=[0,0,-180,180],
-                               showflags=False)
-        plotcal_cp.plot('time','phase')
-        plotcal_ind = 0
-        fname = 'plotcal_figures/phase_scan_spw{0}_ant{1}.png'.format(spw,plotcal_ind)
-        plotcal_cp.savefig(fname)
-        if os.path.exists(fname): plotcal_figures.append(fname)
-        plotcal_ind = plotcal_ind + 1
-        while plotcal_cp.next():
-            fname = 'plotcal_figures/phase_scan_spw{0}_ant{1}.png'.format(spw,plotcal_ind)
-            plotcal_cp.savefig(fname)
-            if os.path.exists(fname): plotcal_figures.append(fname)
-            plotcal_ind = plotcal_ind + 1
+    casa.plotms(vis='phase_scan.Gcal', xaxis='time', yaxis='phase',
+                field=field, iteraxis='spw',
+                coloraxis='antenna',
+                title='Phase GCal (scan; post-bandpass)',
+                plotfile='plotcal_figures/3_phase_scan.Gcal.png',
+                overwrite=True, showgui=False, exprange='all')
     #
     # scan timescale amplitude corrections using
     # integration timescale phase calibration
@@ -1170,49 +1124,14 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
         raise ValueError('Problem with amplitude calibration!')
     logger.info("Done.")
     #
-    # Generate phase_scan.Gcal plots
+    # Generate apcal_scan.Gcal plots
     #
-    plotcal_cp.open('apcal_scan.Gcal')
-    for spw in my_cont_spws.split(',')+my_line_spws.split(','):
-        try:
-            plotcal_cp.selectcal(spw=spw)
-        except RuntimeError:
-            logger.warn("spw {0} not found!".format(spw))
-            continue
-        plotcal_cp.plotoptions(subplot=111, overplot=False,
-                               iteration='antenna', plotrange=[0,0,-180,180],
-                               showflags=False)
-        plotcal_cp.plot('time','phase')
-        plotcal_ind = 0
-        fname = 'plotcal_figures/apcal_phase_scan_spw{0}_ant{1}.png'.format(spw,plotcal_ind)
-        plotcal_cp.savefig(fname)
-        if os.path.exists(fname): plotcal_figures.append(fname)
-        plotcal_ind = plotcal_ind + 1
-        while plotcal_cp.next():
-            fname = 'plotcal_figures/apcal_phase_scan_spw{0}_ant{1}.png'.format(spw,plotcal_ind)
-            plotcal_cp.savefig(fname)
-            if os.path.exists(fname): plotcal_figures.append(fname)
-            plotcal_ind = plotcal_ind + 1
-    for spw in my_cont_spws.split(',')+my_line_spws.split(','):
-        try:
-            plotcal_cp.selectcal(spw=spw)
-        except RuntimeError:
-            logger.warn("spw {0} not found!".format(spw))
-            continue
-        plotcal_cp.plotoptions(subplot=111, overplot=False,
-                               iteration='antenna', plotrange=[0,0,0,0],
-                               showflags=False)
-        plotcal_cp.plot('time','amp')
-        plotcal_ind = 0
-        fname = 'plotcal_figures/apcal_amp_scan_spw{0}_ant{1}.png'.format(spw,plotcal_ind)
-        plotcal_cp.savefig(fname)
-        if os.path.exists(fname): plotcal_figures.append(fname)
-        plotcal_ind = plotcal_ind + 1
-        while plotcal_cp.next():
-            fname = 'plotcal_figures/apcal_amp_scan_spw{0}_ant{1}.png'.format(spw,plotcal_ind)
-            plotcal_cp.savefig(fname)
-            if os.path.exists(fname): plotcal_figures.append(fname)
-            plotcal_ind = plotcal_ind + 1
+    casa.plotms(vis='apcal_scan.Gcal', xaxis='time', yaxis='amplitude',
+                field=field, iteraxis='spw',
+                coloraxis='antenna',
+                title='Amplitude GCal (scan; post-bandpass)',
+                plotfile='plotcal_figures/4_apcal_scan.Gcal.png',
+                overwrite=True, showgui=False, exprange='all')
     #
     # set the flux scale
     #
@@ -1225,6 +1144,15 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
         logger.critical('Problem with flux calibration')
         raise ValueError('Problem with flux calibration!')
     logger.info("Done.")
+    #
+    # Generate flux.cal plots
+    #
+    casa.plotms(vis='flux.cal', xaxis='channel', yaxis='amplitude',
+                field=field, iteraxis='spw',
+                coloraxis='antenna',
+                title='Flux Cal',
+                plotfile='plotcal_figures/5_flux.cal.png',
+                overwrite=True, showgui=False, exprange='all')
     #
     # apply calibration solutions to calibrators
     #
@@ -1254,7 +1182,9 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
         f.write(r"\begin{document}"+"\n")
         f.write(r"\begin{figure}"+"\n")
         f.write(r"\centering"+"\n")
-        for fname in plotcal_figures:
+        fnames = glob.glob("plotcal_figures/{0}_*.png".format(plotnum))
+        fnames = natural_sort(fnames)
+        for fname in fnames:
             if iplot > 0 and iplot % 6 == 0:
                 f.write(r"\end{figure}"+"\n")
                 f.write(r"\clearpage"+"\n")
@@ -1566,8 +1496,8 @@ def split_fields(vis='', primary_cals=[], secondary_cals=[], science_targets=[])
         casa.split(vis=vis, outputvis=outputvis, field=field, keepflags=False)
     logger.info("Done!")
 
-def main(vis='', config_file='', antpos=False, gaincurve=False,
-         opacity=False, calwt=True, auto=''):
+def main(vis='', config_file='', shadow_tolerance=0.0, quackinterval=6.0,
+         antpos=False, gaincurve=False, opacity=False, calwt=True, auto=''):
     """
     Run the calibration pipeline
 
@@ -1576,6 +1506,14 @@ def main(vis='', config_file='', antpos=False, gaincurve=False,
         The masurement set
       config_file :: string
         The filename of the configuration file for this project
+      shadow_tolerance :: scalar
+        The overlap tolerance used for shadow flagging. Flag
+        any data with projected baseline separation less than
+        r_1 + r_2 - shadow_tolerance
+        where r_1 and r_2 are the radii of the antennas.
+      quackinterval :: scalar
+        The amount of time in seconds to flag at the beginning
+        of each scan.
       antpos :: boolean
         if True, compute antenna position corrections (only for VLA)
       gaincurve :: boolean
@@ -1614,8 +1552,8 @@ def main(vis='', config_file='', antpos=False, gaincurve=False,
     #
     # initial setup
     #
-    my_cont_spws,my_line_spws,flux_cals,primary_cals,secondary_cals,science_targets,refant = \
-      setup(vis=vis,config=config)
+    my_cont_spws,my_line_spws,flux_cals,primary_cals,secondary_cals,\
+        science_targets,refant = setup(vis=vis,config=config)
     #
     # Prompt the user with a menu for each option, or auto-do them
     #
@@ -1625,7 +1563,7 @@ def main(vis='', config_file='', antpos=False, gaincurve=False,
     calfields = []
     while True:
         if len(auto) == 0:
-            print("0. Preliminary flags (config file, etc.) and auto-flag all fields")
+            print("0. Preliminary flags (config file, etc.)")
             print("1. Auto-flag calibrator fields")
             print("2. Generate plotms figures for calibrator fields")
             print("3. Manually flag calibrator fields")
@@ -1642,7 +1580,10 @@ def main(vis='', config_file='', antpos=False, gaincurve=False,
             auto_ind += 1
         if answer == '0':
             preliminary_flagging(vis=vis, my_line_spws=my_line_spws, 
-                                 my_cont_spws=my_cont_spws, config=config)
+                                 my_cont_spws=my_cont_spws,
+                                 shadow_tolerance=shadow_tolerance,
+                                 quackinterval=quackinterval,
+                                 config=config)
         elif answer == '1':
             auto_flag_calibrators(vis=vis, primary_cals=primary_cals, 
                                   secondary_cals=secondary_cals)            
