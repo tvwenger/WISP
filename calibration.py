@@ -1012,7 +1012,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     #
     casa.plotms(vis='phase_int.Gcal0', xaxis='time', yaxis='phase',
                 field=field, iteraxis='spw',
-                coloraxis='antenna',
+                coloraxis='antenna1',
                 title='Phase GCal (integration; pre-bandpass)',
                 plotfile='plotcal_figures/0_phase_int.Gcal0.png',
                 overwrite=True, showgui=False, exprange='all')
@@ -1055,7 +1055,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     #
     casa.plotms(vis='bandpass.Bcal', xaxis='channel', yaxis='amplitude',
                 field=field, iteraxis='spw',
-                coloraxis='antenna',
+                coloraxis='antenna1',
                 title='Bandpass BCal',
                 plotfile='plotcal_figures/1_bandpass.Bcal.png',
                 overwrite=True, showgui=False, exprange='all')
@@ -1080,7 +1080,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     #
     casa.plotms(vis='phase_int.Gcal1', xaxis='time', yaxis='phase',
                 field=field, iteraxis='spw',
-                coloraxis='antenna',
+                coloraxis='antenna1',
                 title='Phase GCal (integration; post-bandpass)',
                 plotfile='plotcal_figures/2_phase_int.Gcal1.png',
                 overwrite=True, showgui=False, exprange='all')
@@ -1104,7 +1104,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     #
     casa.plotms(vis='phase_scan.Gcal', xaxis='time', yaxis='phase',
                 field=field, iteraxis='spw',
-                coloraxis='antenna',
+                coloraxis='antenna1',
                 title='Phase GCal (scan; post-bandpass)',
                 plotfile='plotcal_figures/3_phase_scan.Gcal.png',
                 overwrite=True, showgui=False, exprange='all')
@@ -1128,7 +1128,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     #
     casa.plotms(vis='apcal_scan.Gcal', xaxis='time', yaxis='amplitude',
                 field=field, iteraxis='spw',
-                coloraxis='antenna',
+                coloraxis='antenna1',
                 title='Amplitude GCal (scan; post-bandpass)',
                 plotfile='plotcal_figures/4_apcal_scan.Gcal.png',
                 overwrite=True, showgui=False, exprange='all')
@@ -1149,7 +1149,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     #
     casa.plotms(vis='flux.cal', xaxis='channel', yaxis='amplitude',
                 field=field, iteraxis='spw',
-                coloraxis='antenna',
+                coloraxis='antenna1',
                 title='Flux Cal',
                 plotfile='plotcal_figures/5_flux.cal.png',
                 overwrite=True, showgui=False, exprange='all')
@@ -1182,7 +1182,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
         f.write(r"\begin{document}"+"\n")
         f.write(r"\begin{figure}"+"\n")
         f.write(r"\centering"+"\n")
-        fnames = glob.glob("plotcal_figures/{0}_*.png".format(plotnum))
+        fnames = glob.glob("plotcal_figures/*.png")
         fnames = natural_sort(fnames)
         for fname in fnames:
             if iplot > 0 and iplot % 6 == 0:
