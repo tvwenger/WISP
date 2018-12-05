@@ -321,6 +321,15 @@ def preliminary_flagging(vis='', my_line_spws='', my_cont_spws='',
                       flagbackup=False, extendflags=False)
         logger.info("Done.")
     #
+    # Flag spectral windows from configuration file
+    #
+    spws = config.get("Flags", "Spectral Window")
+    if spws != '':
+        logger.info("Flagging spectral windows from configuration file: {0}".format(spws))
+        casa.flagdata(vis=vis, mode='manual', spw=spws,
+                      flagbackup=False, extendflags=False)
+        logger.info("Done.")
+    #
     # Flag line channels from configuration file
     #
     badchans = config.get("Flags", "Line Channels").split(',')
