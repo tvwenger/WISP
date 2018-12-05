@@ -854,7 +854,7 @@ def manual_flag_calibrators(vis='', primary_cals=[], secondary_cals=[],
 def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
                           flux_cals=[], my_line_spws='',
                           my_cont_spws='', refant='', calwt=True,
-                          antpos=False, gaincurve=False, opacity=False,
+                          antpos=True, gaincurve=True, opacity=True,
                           config=None):
     """
     Calculate calibration solutions (bandpass, delays, complex gains)
