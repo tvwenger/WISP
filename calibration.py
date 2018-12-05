@@ -244,7 +244,7 @@ def setup(vis='',config=None):
             secondary_cals, science_targets, refant)
 
 def preliminary_flagging(vis='', my_line_spws='', my_cont_spws='',
-                         shadow_tolerance=0.0, quackinterval=6.0,
+                         shadow_tolerance=0.0, quackinterval=10.0,
                          config=None):
     """
     Perform preliminary flagging: shadowed antennas, quack,
@@ -1496,8 +1496,8 @@ def split_fields(vis='', primary_cals=[], secondary_cals=[], science_targets=[])
         casa.split(vis=vis, outputvis=outputvis, field=field, keepflags=False)
     logger.info("Done!")
 
-def main(vis='', config_file='', shadow_tolerance=0.0, quackinterval=6.0,
-         antpos=False, gaincurve=False, opacity=False, calwt=True, auto=''):
+def main(vis='', config_file='', shadow_tolerance=0.0, quackinterval=10.0,
+         antpos=True, gaincurve=True, opacity=True, calwt=True, auto=''):
     """
     Run the calibration pipeline
 
