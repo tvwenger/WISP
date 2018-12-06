@@ -1194,7 +1194,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
                 f.write(r"\end{figure}"+"\n")
                 f.write(r"\begin{figure}"+"\n")
                 f.write(r"\centering"+"\n")
-            f.write(r"\includegraphics[width=0.45\textwidth]{"+fname+"}}"+"\n")
+            f.write(r"\includegraphics[width=0.45\textwidth]{"+fname+"}"+"\n")
             iplot+=1
         f.write(r"\end{figure}"+"\n")
         f.write(r"\end{document}"+"\n")
