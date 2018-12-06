@@ -1023,7 +1023,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
                 field=field, iteraxis='spw',
                 coloraxis='antenna1',
                 title='Phase GCal (integration; pre-bandpass)',
-                plotfile='plotcal_figures/0_phase_int.Gcal0.png',
+                plotfile='plotcal_figures/0_phase_int0.png',
                 overwrite=True, showgui=False, exprange='all')
     #
     # bandpass calibration for continuum spws. Combine all scans,
@@ -1066,7 +1066,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
                 field=field, iteraxis='spw',
                 coloraxis='antenna1',
                 title='Bandpass BCal',
-                plotfile='plotcal_figures/1_bandpass.Bcal.png',
+                plotfile='plotcal_figures/1_bandpass.png',
                 overwrite=True, showgui=False, exprange='all')
     #
     # integration timescale phase corrections for all calibrators
@@ -1091,7 +1091,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
                 field=field, iteraxis='spw',
                 coloraxis='antenna1',
                 title='Phase GCal (integration; post-bandpass)',
-                plotfile='plotcal_figures/2_phase_int.Gcal1.png',
+                plotfile='plotcal_figures/2_phase_int1.png',
                 overwrite=True, showgui=False, exprange='all')
     #
     # scan timescale phase corrections for all calibrators
@@ -1115,7 +1115,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
                 field=field, iteraxis='spw',
                 coloraxis='antenna1',
                 title='Phase GCal (scan; post-bandpass)',
-                plotfile='plotcal_figures/3_phase_scan.Gcal.png',
+                plotfile='plotcal_figures/3_phase_scan.png',
                 overwrite=True, showgui=False, exprange='all')
     #
     # scan timescale amplitude corrections using
@@ -1139,7 +1139,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
                 field=field, iteraxis='spw',
                 coloraxis='antenna1',
                 title='Amplitude GCal (scan; post-bandpass)',
-                plotfile='plotcal_figures/4_apcal_scan.Gcal.png',
+                plotfile='plotcal_figures/4_apcal_scan.png',
                 overwrite=True, showgui=False, exprange='all')
     #
     # set the flux scale
@@ -1153,15 +1153,6 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
         logger.critical('Problem with flux calibration')
         raise ValueError('Problem with flux calibration!')
     logger.info("Done.")
-    #
-    # Generate flux.cal plots
-    #
-    casa.plotms(vis='flux.cal', xaxis='channel', yaxis='amplitude',
-                field=field, iteraxis='spw',
-                coloraxis='antenna1',
-                title='Flux Cal',
-                plotfile='plotcal_figures/5_flux.cal.png',
-                overwrite=True, showgui=False, exprange='all')
     #
     # apply calibration solutions to calibrators
     #
@@ -1203,7 +1194,6 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
                 f.write(r"\end{figure}"+"\n")
                 f.write(r"\begin{figure}"+"\n")
                 f.write(r"\centering"+"\n")
-            f.write(r"\subfloat[\texttt{"+fname.replace("_",r"\_")+"}]{")
             f.write(r"\includegraphics[width=0.45\textwidth]{"+fname+"}}"+"\n")
             iplot+=1
         f.write(r"\end{figure}"+"\n")
