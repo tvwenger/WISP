@@ -1373,7 +1373,8 @@ def main(field, vis='', spws='', config_file='',
             print("7. Autoclean each line spw (MFS; multi-scale)")
             print("8. Dirty image each line spw (channel; multi-scale)")
             print("9. Autoclean each line spw (channel; multi-scale)")
-            print("10. Generate continuum and line diagnostic plots")
+            print("10. Generate continuum diagnostic plots")
+            print("11. Generate spectral line diagnostic plots")
             print("q [quit]")
             answer = raw_input("> ")
         else:
@@ -1418,6 +1419,7 @@ def main(field, vis='', spws='', config_file='',
         elif answer == '10':
             all_spws = ['cont']+natural_sort(my_cont_spws.split(',')+my_line_spws.split(','))
             contplot(field,spws=','.join(all_spws),uvtaper=uvtaper,cp=cp)
+        elif answer == '11':
             lineplot(field,line_spws=all_line_spws,uvtaper=uvtaper,cp=cp)
         elif answer.lower() == 'q' or answer.lower() == 'quit':
             break
