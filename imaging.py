@@ -317,39 +317,42 @@ def mfs_clean_cont(field='', vis='', my_cont_spws='', cp={},
     #
     # Lightly clean continuum to get RMS threshold
     #
-    imagename='{0}.cont.mfs.lightclean'.format(field)
-    if uvtaper:
-        imagename = imagename + '.uvtaper'
-    logger.info("Lightly cleaning continuum image (MFS)...")
-    casa.tclean(vis=vis, imagename=imagename, field=field, spw=my_cont_spws, 
-                specmode='mfs', threshold='0mJy', niter=cp["lightniter"], 
-                usemask='auto-multithresh', pbmask=cp['contpbmask'], 
-                sidelobethreshold=cp['contsidelobethreshold'], 
-                noisethreshold=cp['contnoisethreshold'], 
-                lownoisethreshold=cp['contlownoisethreshold'], 
-                negativethreshold=cp['contnegativethreshold'], 
-                smoothfactor=cp['contsmoothfactor'], minbeamfrac=cp['contminbeamfrac'], 
-                cutthreshold=cp['contcutthreshold'], growiterations=cp['contgrowiterations'], 
-                nterms=cp['nterms'], deconvolver='mtmfs', 
-                scales=cp['scales'], 
-                gain=cp['gain'], cyclefactor=cp['cyclefactor'], 
-                imsize=cp['imsize'], pblimit=-1.0, cell=cp['cell'], 
-                weighting=cp['weighting'], robust=cp['robust'], 
-                uvtaper=cp['outertaper'], pbcor=False)
-    logger.info("Done.")
-    #
-    # Get RMS of residuals outside of clean mask
-    #
-    dat = casa.imstat(imagename='{0}.residual.tt0'.format(imagename), 
-                      axes=[0, 1], mask="'{0}.mask' == 0".format(imagename))
-    logger.info("Max un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.max(dat['rms'])))
-    logger.info("Mean un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.mean(dat['rms'])))
-    logger.info("Median un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.median(dat['rms'])))
-    logger.info("Max un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.max(dat['medabsdevmed'])))
-    logger.info("Mean un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.mean(dat['medabsdevmed'])))
-    logger.info("Median un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.median(dat['medabsdevmed'])))
-    logger.info("Using median MADS*1.4826 times {0} (user-defined) as threshold".format(cp['nrms']))
-    threshold = '{0:.2f}mJy'.format(cp["nrms"]*1000.*1.4826*np.median(dat['medabsdevmed']))
+    if not interactive:
+        imagename='{0}.cont.mfs.lightclean'.format(field)
+        if uvtaper:
+            imagename = imagename + '.uvtaper'
+        logger.info("Lightly cleaning continuum image (MFS)...")
+        casa.tclean(vis=vis, imagename=imagename, field=field, spw=my_cont_spws, 
+                    specmode='mfs', threshold='0mJy', niter=cp["lightniter"], 
+                    usemask='auto-multithresh', pbmask=cp['contpbmask'], 
+                    sidelobethreshold=cp['contsidelobethreshold'], 
+                    noisethreshold=cp['contnoisethreshold'], 
+                    lownoisethreshold=cp['contlownoisethreshold'], 
+                    negativethreshold=cp['contnegativethreshold'], 
+                    smoothfactor=cp['contsmoothfactor'], minbeamfrac=cp['contminbeamfrac'], 
+                    cutthreshold=cp['contcutthreshold'], growiterations=cp['contgrowiterations'], 
+                    nterms=cp['nterms'], deconvolver='mtmfs', 
+                    scales=cp['scales'], 
+                    gain=cp['gain'], cyclefactor=cp['cyclefactor'], 
+                    imsize=cp['imsize'], pblimit=-1.0, cell=cp['cell'], 
+                    weighting=cp['weighting'], robust=cp['robust'], 
+                    uvtaper=cp['outertaper'], pbcor=False)
+        logger.info("Done.")
+        #
+        # Get RMS of residuals outside of clean mask
+        #
+        dat = casa.imstat(imagename='{0}.residual.tt0'.format(imagename), 
+                          axes=[0, 1], mask="'{0}.mask' == 0".format(imagename))
+        logger.info("Max un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.max(dat['rms'])))
+        logger.info("Mean un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.mean(dat['rms'])))
+        logger.info("Median un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.median(dat['rms'])))
+        logger.info("Max un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.max(dat['medabsdevmed'])))
+        logger.info("Mean un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.mean(dat['medabsdevmed'])))
+        logger.info("Median un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.median(dat['medabsdevmed'])))
+        logger.info("Using median MADS*1.4826 times {0} (user-defined) as threshold".format(cp['nrms']))
+        threshold = '{0:.2f}mJy'.format(cp["nrms"]*1000.*1.4826*np.median(dat['medabsdevmed']))
+    else:
+        threshold = '0.0mJy'
     #
     # Clean to threshold
     #
@@ -475,7 +478,8 @@ def mfs_dirty_spws(field='', vis='', my_spws='',
         logger.info("Performing primary beam correction...")
         casa.impbcor(imagename='{0}.image'.format(imagename), 
                      pbimage='{0}.pb'.format(pbimagename), 
-                     outfile='{0}.pbcor.image'.format(imagename))
+                     outfile='{0}.pbcor.image'.format(imagename),
+                     overwrite=True)
         logger.info("Done.")
         #
         # Export to fits
@@ -524,38 +528,41 @@ def mfs_clean_spws(field='', vis='', my_spws='',
         #
         # Lightly clean to get threshold
         #
-        imagename='{0}.spw{1}.mfs.lightclean'.format(field,spw)
-        if uvtaper:
-            imagename = imagename + '.uvtaper'
-        logger.info("Lightly cleaning spw {0} (MFS)...".format(spw))
-        casa.tclean(vis=vis, imagename=imagename, field=field, spw=spw, 
-                    specmode='mfs', threshold='0mJy', niter=cp["lightniter"], 
-                    usemask='auto-multithresh', pbmask=cp['linepbmask'], 
-                    sidelobethreshold=cp['linesidelobethreshold'], 
-                    noisethreshold=cp['linenoisethreshold'], 
-                    lownoisethreshold=cp['linelownoisethreshold'], 
-                    negativethreshold=cp['linenegativethreshold'], 
-                    smoothfactor=cp['linesmoothfactor'], minbeamfrac=cp['lineminbeamfrac'], 
-                    cutthreshold=cp['linecutthreshold'], growiterations=cp['linegrowiterations'], 
-                    deconvolver='multiscale', scales=cp['scales'], 
-                    gain=cp['gain'], cyclefactor=cp['cyclefactor'], 
-                    imsize=cp['imsize'], pblimit=-1.0, cell=cp['cell'], 
-                    weighting=cp['weighting'], robust=cp['robust'], 
-                    uvtaper=cp['outertaper'], pbcor=False)
-        logger.info("Done.")
-        #
-        # Get RMS of residuals
-        #
-        dat = casa.imstat(imagename='{0}.residual'.format(imagename), 
-                          axes=[0, 1], mask="'{0}.mask' == 0".format(imagename))
-        logger.info("Max un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.max(dat['rms'])))
-        logger.info("Mean un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.mean(dat['rms'])))
-        logger.info("Median un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.median(dat['rms'])))
-        logger.info("Max un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.max(dat['medabsdevmed'])))
-        logger.info("Mean un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.mean(dat['medabsdevmed'])))
-        logger.info("Median un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.median(dat['medabsdevmed'])))
-        logger.info("Using median MADS*1.4826 times {0} (user-defined) as threshold".format(cp['nrms']))
-        threshold = '{0:.2f}mJy'.format(cp["nrms"]*1000.*1.4826*np.median(dat['medabsdevmed']))
+        if not interactive:
+            imagename='{0}.spw{1}.mfs.lightclean'.format(field,spw)
+            if uvtaper:
+                imagename = imagename + '.uvtaper'
+            logger.info("Lightly cleaning spw {0} (MFS)...".format(spw))
+            casa.tclean(vis=vis, imagename=imagename, field=field, spw=spw, 
+                        specmode='mfs', threshold='0mJy', niter=cp["lightniter"], 
+                        usemask='auto-multithresh', pbmask=cp['linepbmask'], 
+                        sidelobethreshold=cp['linesidelobethreshold'], 
+                        noisethreshold=cp['linenoisethreshold'], 
+                        lownoisethreshold=cp['linelownoisethreshold'], 
+                        negativethreshold=cp['linenegativethreshold'], 
+                        smoothfactor=cp['linesmoothfactor'], minbeamfrac=cp['lineminbeamfrac'], 
+                        cutthreshold=cp['linecutthreshold'], growiterations=cp['linegrowiterations'], 
+                        deconvolver='multiscale', scales=cp['scales'], 
+                        gain=cp['gain'], cyclefactor=cp['cyclefactor'], 
+                        imsize=cp['imsize'], pblimit=-1.0, cell=cp['cell'], 
+                        weighting=cp['weighting'], robust=cp['robust'], 
+                        uvtaper=cp['outertaper'], pbcor=False)
+            logger.info("Done.")
+            #
+            # Get RMS of residuals
+            #
+            dat = casa.imstat(imagename='{0}.residual'.format(imagename), 
+                              axes=[0, 1], mask="'{0}.mask' == 0".format(imagename))
+            logger.info("Max un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.max(dat['rms'])))
+            logger.info("Mean un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.mean(dat['rms'])))
+            logger.info("Median un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.median(dat['rms'])))
+            logger.info("Max un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.max(dat['medabsdevmed'])))
+            logger.info("Mean un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.mean(dat['medabsdevmed'])))
+            logger.info("Median un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.median(dat['medabsdevmed'])))
+            logger.info("Using median MADS*1.4826 times {0} (user-defined) as threshold".format(cp['nrms']))
+            threshold = '{0:.2f}mJy'.format(cp["nrms"]*1000.*1.4826*np.median(dat['medabsdevmed']))
+        else:
+            threshold = '0.0mJy'
         #
         # Clean to threshold
         #
@@ -588,7 +595,8 @@ def mfs_clean_spws(field='', vis='', my_spws='',
         logger.info("Performing primary beam correction...")
         casa.impbcor(imagename='{0}.image'.format(imagename), 
                      pbimage='{0}.pb'.format(pbimagename), 
-                     outfile='{0}.pbcor.image'.format(imagename))
+                     outfile='{0}.pbcor.image'.format(imagename),
+                     overwrite=True)
         logger.info("Done.")
         #
         # Export to fits
@@ -723,7 +731,8 @@ def channel_dirty_spws(field='', vis='', my_spws='',
         logger.info("Performing primary beam correction...")
         casa.impbcor(imagename='{0}.image'.format(imagename), 
                      pbimage='{0}.pb'.format(pbimagename), 
-                     outfile='{0}.pbcor.image'.format(imagename))
+                     outfile='{0}.pbcor.image'.format(imagename),
+                     overwrite=True)
         logger.info("Done.")
         #
         # Export to fits
@@ -815,40 +824,43 @@ def channel_clean_spws(field='', vis='', my_spws='',
         else:
             myvis = vis
             myspw = spw
-        imagename='{0}.spw{1}.channel.lightclean'.format(field,spw)
-        if uvtaper:
-            imagename = imagename + '.uvtaper'
-            mask = '{0}.spw{1}.mfs.clean.uvtaper.mask'.format(field,spw)
+        if not interactive:
+            imagename='{0}.spw{1}.channel.lightclean'.format(field,spw)
+            if uvtaper:
+                imagename = imagename + '.uvtaper'
+                mask = '{0}.spw{1}.mfs.clean.uvtaper.mask'.format(field,spw)
+            else:
+                mask = '{0}.spw{1}.mfs.clean.mask'.format(field,spw)
+            if not os.path.isdir(mask):
+                logger.critical("Error: {0} does not exist".format(mask))
+                raise ValueError("{0} does not exist".format(mask))
+            logger.info("Lightly cleaning spw {0} (restfreq: {1})...".format(spw,restfreq))
+            logger.info("Using mask: {0}".format(mask))
+            casa.tclean(vis=myvis, imagename=imagename, field=field, spw=myspw, 
+                        specmode='cube', threshold='0mJy', niter=cp['lightniter']*cp['nchan'], 
+                        mask=mask, 
+                        deconvolver='multiscale', scales=cp['scales'], 
+                        gain=cp['gain'], cyclefactor=cp['cyclefactor'], 
+                        imsize=cp['imsize'], pblimit=-1.0, cell=cp['cell'], 
+                        weighting=cp['weighting'], robust=cp['robust'], 
+                        restfreq=restfreq, start=start, width=width, nchan=nchan, 
+                        outframe=outframe, veltype=veltype, interpolation=interpolation, 
+                        uvtaper=cp['outertaper'], pbcor=False)
+            #
+            # Get RMS of residuals
+            #
+            dat = casa.imstat(imagename='{0}.residual'.format(imagename), 
+                              axes=[0, 1], mask="'{0}.mask' == 0".format(imagename))
+            logger.info("Max un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.max(dat['rms'])))
+            logger.info("Mean un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.mean(dat['rms'])))
+            logger.info("Median un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.median(dat['rms'])))
+            logger.info("Max un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.max(dat['medabsdevmed'])))
+            logger.info("Mean un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.mean(dat['medabsdevmed'])))
+            logger.info("Median un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.median(dat['medabsdevmed'])))
+            logger.info("Using median MADS*1.4826 times {0} (user-defined) as threshold".format(cp['nrms']))
+            threshold = '{0:.2f}mJy'.format(cp["nrms"]*1000.*1.4826*np.median(dat['medabsdevmed']))
         else:
-            mask = '{0}.spw{1}.mfs.clean.mask'.format(field,spw)
-        if not os.path.isdir(mask):
-            logger.critical("Error: {0} does not exist".format(mask))
-            raise ValueError("{0} does not exist".format(mask))
-        logger.info("Lightly cleaning spw {0} (restfreq: {1})...".format(spw,restfreq))
-        logger.info("Using mask: {0}".format(mask))
-        casa.tclean(vis=myvis, imagename=imagename, field=field, spw=myspw, 
-                    specmode='cube', threshold='0mJy', niter=cp['lightniter']*cp['nchan'], 
-                    mask=mask, 
-                    deconvolver='multiscale', scales=cp['scales'], 
-                    gain=cp['gain'], cyclefactor=cp['cyclefactor'], 
-                    imsize=cp['imsize'], pblimit=-1.0, cell=cp['cell'], 
-                    weighting=cp['weighting'], robust=cp['robust'], 
-                    restfreq=restfreq, start=start, width=width, nchan=nchan, 
-                    outframe=outframe, veltype=veltype, interpolation=interpolation, 
-                    uvtaper=cp['outertaper'], pbcor=False)
-        #
-        # Get RMS of residuals
-        #
-        dat = casa.imstat(imagename='{0}.residual'.format(imagename), 
-                          axes=[0, 1], mask="'{0}.mask' == 0".format(imagename))
-        logger.info("Max un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.max(dat['rms'])))
-        logger.info("Mean un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.mean(dat['rms'])))
-        logger.info("Median un-masked RMS: {0:.2f} mJy/beam".format(1000.*np.median(dat['rms'])))
-        logger.info("Max un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.max(dat['medabsdevmed'])))
-        logger.info("Mean un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.mean(dat['medabsdevmed'])))
-        logger.info("Median un-masked MAD*1.4826: {0:.2f} mJy/beam".format(1000.*1.4826*np.median(dat['medabsdevmed'])))
-        logger.info("Using median MADS*1.4826 times {0} (user-defined) as threshold".format(cp['nrms']))
-        threshold = '{0:.2f}mJy'.format(cp["nrms"]*1000.*1.4826*np.median(dat['medabsdevmed']))
+            threshold = '0.0mJy'
         #
         # Deep clean to threshold
         #
@@ -883,7 +895,8 @@ def channel_clean_spws(field='', vis='', my_spws='',
         logger.info("Performing primary beam correction...")
         casa.impbcor(imagename='{0}.image'.format(imagename), 
                      pbimage='{0}.pb'.format(pbimagename), 
-                     outfile='{0}.pbcor.image'.format(imagename))
+                     outfile='{0}.pbcor.image'.format(imagename),
+                     overwrite=True)
         logger.info("Done.")
         #
         # Export to fits
@@ -1286,8 +1299,8 @@ def main(field, vis='', spws='', config_file='',
       vis :: string
         The measurement set containing all data for field
       spws :: string
-        comma-separated list of line spws to clean
-        if empty, clean all line spws
+        comma-separated list of spws to clean
+        if empty, clean all spws
       config_file :: string
         filename of the configuration file for this project
       uvtaper :: boolean
@@ -1324,11 +1337,22 @@ def main(field, vis='', spws='', config_file='',
     #
     # initial setup, get all line and cont spws
     #
-    my_cont_spws,all_line_spws,cp = setup(vis=vis,config=config,uvtaper=uvtaper)
+    all_cont_spws,all_line_spws,cp = setup(vis=vis,config=config,uvtaper=uvtaper)
     if spws == '':
+        my_cont_spws = all_cont_spws
         my_line_spws = all_line_spws
     else:
-        my_line_spws = spws
+        my_cont_spws = []
+        my_line_spws = []
+        for spw in spws.split(','):
+            if spw in all_cont_spws.split(','):
+                my_cont_spws.append(spw)
+            elif spw in all_line_spws.split(','):
+                my_line_spws.append(spw)
+            else:
+                logger.critical('Spectral window {0} not in config file'.format(spw))
+        my_cont_spws = ','.join(my_cont_spws)
+        my_line_spws = ','.join(my_line_spws)
     #
     # Determine which spws actually have data
     #
