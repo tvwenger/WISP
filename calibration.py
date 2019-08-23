@@ -4,7 +4,7 @@ calibration.py - WISP Calibration Pipeline
 Calibrate a measurement set by scripting CASA tasks and generating
 diagnostic plots.
 
-Copyright(C) 2018 by
+Copyright(C) 2018-2019 by
 Trey V. Wenger; tvwenger@gmail.com
 
 GNU General Public License v3 (GNU GPLv3)
@@ -31,6 +31,10 @@ Trey V. Wenger December 2018 - V1.1
     parameters for shadow tolerance and quack interval.
     Added opacity, gaincurve, and antenna position calibrations.
     Changed plotcal figures to use plotms for generation.
+
+Trey V. Wenger August 2019 - V2.0
+    Added polarization calibration.
+    Re-designed to OOP framework.
 """
 
 import __main__ as casa
@@ -45,7 +49,7 @@ import logging.config
 import ConfigParser
 import gc
 
-__version__ = "1.1"
+__version__ = "2.0"
 
 # load logging configuration file
 logging.config.fileConfig('logging.conf')
@@ -101,7 +105,7 @@ def setup(vis='',config=None):
         The ConfigParser object for this project
 
     Returns: my_cont_spws, my_line_spws, flux_cals, primary_cals,
-             secondary_cals, science_targets, refant
+             secondary_cals, pol_cals, science_targets, refant
       my_cont_spws :: string
         comma-separated string of continuum spws
       my_line_spws :: string
@@ -112,6 +116,8 @@ def setup(vis='',config=None):
         list of primary calibrator names
       secondary_cals :: list of strings
         list of secondary calibrator names
+      pol_cals :: list of strings
+        list of polarization calibrator names
       science_targets :: list of strings
         list of science targets names
       refant :: string
@@ -215,6 +221,17 @@ def setup(vis='',config=None):
     for flux_cal in flux_cals:
         if flux_cal not in primary_cals:
             primary_cals.append(flux_cal)
+    #
+    # Get polarization calibrators from config
+    #
+    pol_cals = [field for field in config.get('Calibrators','Polarization Calibrators').splitlines()
+                if field in fields]
+    # check that polarization calibrators are in primary list
+    for pol_cal in pol_cals:
+        if pol_cal not in primary_cals:
+            raise ValueError("Polarization Calibrator must be a "
+                             "Primary Calibrator")
+    logger.info("Polarization calibrators: {0}".format(pol_cals))
     #
     # Get science targets
     # 
@@ -561,7 +578,7 @@ def gen_calibrator_plots(vis='',primary_cals=[],secondary_cals=[],
                     overwrite=True, showgui=False, exprange='all')
         plots.append({'field':field, 'xaxis':'uvwave', 'yaxis':'amp', 'avgtime':'', 'avgchannel':''})
         plotnum += 1
-         #
+        #
         # Amplitude vs Time
         #
         casa.plotms(vis=vis, xaxis='time', yaxis='amp', field=field, 
@@ -861,10 +878,10 @@ def manual_flag_calibrators(vis='', primary_cals=[], secondary_cals=[],
     logger.info("Done.")
 
 def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
-                          flux_cals=[], my_line_spws='',
-                          my_cont_spws='', refant='', calwt=True,
-                          antpos=True, gaincurve=True, opacity=True,
-                          config=None):
+                          flux_cals=[], pol_cals=[], my_line_spws='',
+                          my_cont_spws='', refant='', calpol=False,
+                          calwt=True, antpos=True, gaincurve=True,
+                          opacity=True, config=None):
     """
     Calculate calibration solutions (bandpass, delays, complex gains)
     and apply the calibration solutions to the calibrators
@@ -879,12 +896,16 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
         list of secondary calibrator names
       flux_cals :: list of strings
         list of flux calibrator names
+      pol_cals :: list of strings
+        list of polarization calibrator names
       my_line_spws :: string
         comma-separated string of line spectral windows
       my_cont_spws :: string
         comma-separated string of continuum spectral windows
       refant :: string
         reference antenna
+      calpol :: boolean
+        if True, calibrate polarization
       calwt :: boolean
         if True, apply calibration weights to data
       antpos :: boolean
@@ -908,6 +929,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     if config is None:
         logger.critical("Error: Need to supply a config")
         raise ValueError("Config is None")
+    parang = config.getboolean('Polarization', 'Parallactic Angle Correction')
     #
     # set the model for the flux calibrators
     #
@@ -988,22 +1010,18 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     # pre-bandpass calibration delay calibration on primary calibrators
     # (linear slope in phase vs frequency)
     #
-    field = ','.join(primary_cals)
     logger.info("Calculating delay calibration table for primary calibrators...")
     if os.path.isdir('delays.Kcal'):
         casa.rmtables('delays.Kcal')
+    field = ','.join(primary_cals)
+    mygaintables = gaintables
     casa.gaincal(vis=vis, caltable='delays.Kcal', field=field,
                  refant=refant, gaintype='K', minblperant=1,
-                 gaintable = gaintables)
+                 parang=parang, gaintable=mygaintables)
     if not os.path.isdir('delays.Kcal'):
         logger.critical('Problem with delay calibration')
         raise ValueError('Problem with delay calibration!')
     logger.info("Done.")
-    #
-    # Add delays to gaintables
-    #
-    gaintables += ['delays.Kcal']
-    gainfields += ['']
     #
     # integration timescale phase calibration
     # (phase vs time)
@@ -1011,10 +1029,12 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     logger.info("Calculating phase calibration table on integration timescales for primary calibrators...")
     if os.path.isdir('phase_int.Gcal0'):
         casa.rmtables('phase_int.Gcal0')
+    field = ','.join(primary_cals)
+    mygaintables = gaintables + ['delays.Kcal']
     casa.gaincal(vis=vis, caltable="phase_int.Gcal0", field=field,
                  solint="int", calmode="p", refant=refant,
                  gaintype="G", minsnr=2.0, minblperant=1,
-                 gaintable=gaintables)
+                 parang=parang, gaintable=mygaintables)
     if not os.path.isdir('phase_int.Gcal0'):
         logger.critical('Problem with integration-timescale phase calibration')
         raise ValueError('Problem with integration-timescale phase calibration!')
@@ -1025,7 +1045,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     casa.plotms(vis='phase_int.Gcal0', xaxis='time', yaxis='phase',
                 field=field, iteraxis='spw',
                 coloraxis='antenna1',
-                title='Phase GCal (integration; pre-bandpass)',
+                title='Phase GCal0 (integration; pre-bandpass)',
                 plotfile='plotcal_figures/0_phase_int0.png',
                 overwrite=True, showgui=False, exprange='all')
     #
@@ -1033,17 +1053,19 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     # average some channels as defined in configuration file
     #
     logger.info("Calculating bandpass calibration table for primary calibrators...")
-    if os.path.isdir('bandpass.Bcal'):
-        casa.rmtables('bandpass.Bcal')
+    if os.path.isdir('bandpass.Bcal0'):
+        casa.rmtables('bandpass.Bcal0')
     chan_avg = config.get('Bandpass Channel Average','Continuum Channels')
     if chan_avg == '':
         solint='inf'
     else:
         solint='inf,{0}chan'.format(chan_avg)
-    casa.bandpass(vis=vis, caltable='bandpass.Bcal', field=field,
+    field = ','.join(primary_cals)
+    mygaintables = gaintables + ['delays.Kcal', 'phase_int.Gcal0']
+    casa.bandpass(vis=vis, caltable='bandpass.Bcal0', field=field,
                   spw=my_cont_spws, refant=refant, solint=solint,
                   combine='scan', solnorm=True, minblperant=1,
-                  gaintable=gaintables+['phase_int.Gcal0'])
+                  parang=parang, gaintable=mygaintables)
     #
     # bandpass calibration for line spws. Combine all scans,
     # average some channels as defined in configuration file,
@@ -1054,40 +1076,36 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
         solint='inf'
     else:
         solint='inf,{0}chan'.format(chan_avg)
-    casa.bandpass(vis=vis, caltable='bandpass.Bcal', field=field,
+    casa.bandpass(vis=vis, caltable='bandpass.Bcal0', field=field,
                   spw=my_line_spws, refant=refant, solint=solint,
                   combine='scan', solnorm=True, minblperant=1, append=True,
-                  gaintable=gaintables+['phase_int.Gcal0'])
-    if not os.path.isdir('bandpass.Bcal'):
+                  parang=parang, gaintable=mygaintables)
+    if not os.path.isdir('bandpass.Bcal0'):
         logger.critical('Problem with bandpass calibration')
         raise ValueError('Problem with bandpass calibration!')
     logger.info("Done.")
     #
-    # Add bandpass to gaintables list
+    # Generate bandpass.Bcal0 plots
     #
-    gaintables += ['bandpass.Bcal']
-    gainfields += ['']
-    #
-    # Generate bandpass.Bcal plots
-    #
-    casa.plotms(vis='bandpass.Bcal', xaxis='channel', yaxis='amplitude',
+    casa.plotms(vis='bandpass.Bcal0', xaxis='channel', yaxis='amplitude',
                 field=field, iteraxis='spw',
                 coloraxis='antenna1',
-                title='Bandpass BCal',
-                plotfile='plotcal_figures/1_bandpass.png',
+                title='Bandpass BCal0',
+                plotfile='plotcal_figures/1_bandpass0.png',
                 overwrite=True, showgui=False, exprange='all')
     #
     # integration timescale phase corrections for all calibrators
     # required for accurate amplitude calibration
     #
-    field = ','.join(primary_cals+secondary_cals)
     logger.info("Re-calculating the phase calibration table on integration timescales for all calibrators...")
     if os.path.isdir('phase_int.Gcal1'):
         casa.rmtables('phase_int.Gcal1')
+    field = ','.join(primary_cals+secondary_cals)
+    mygaintables = gaintables+['delays.Kcal','bandpass.Bcal0']
     casa.gaincal(vis=vis, caltable="phase_int.Gcal1", field=field,
                 solint="int", calmode="p", refant=refant,
                 gaintype="G", minsnr=2.0, minblperant=1,
-                gaintable=gaintables)
+                parang=parang, gaintable=mygaintables)
     if not os.path.isdir('phase_int.Gcal1'):
         logger.critical('Problem with integration-timescale phase calibration')
         raise ValueError('Problem with integration-timescale phase calibration!')
@@ -1098,7 +1116,7 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     casa.plotms(vis='phase_int.Gcal1', xaxis='time', yaxis='phase',
                 field=field, iteraxis='spw',
                 coloraxis='antenna1',
-                title='Phase GCal (integration; post-bandpass)',
+                title='Phase GCal1 (integration; post-bandpass)',
                 plotfile='plotcal_figures/2_phase_int1.png',
                 overwrite=True, showgui=False, exprange='all')
     #
@@ -1106,72 +1124,291 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     # required to apply to science targets
     #
     logger.info("Calculating the phase calibration table on scan timescales for all calibrators...")
-    if os.path.isdir('phase_scan.Gcal'):
-        casa.rmtables('phase_scan.Gcal')
-    casa.gaincal(vis=vis, caltable="phase_scan.Gcal", field=field,
+    if os.path.isdir('phase_scan.Gcal0'):
+        casa.rmtables('phase_scan.Gcal0')
+    field = ','.join(primary_cals+secondary_cals)
+    mygaintables = gaintables+['delays.Kcal','bandpass.Bcal0']
+    casa.gaincal(vis=vis, caltable="phase_scan.Gcal0", field=field,
                  solint="inf", calmode="p", refant=refant,
                  gaintype="G", minsnr=2.0, minblperant=1,
-                 gaintable=gaintables)
-    if not os.path.isdir('phase_scan.Gcal'):
+                 parang=parang, gaintable=mygaintables)
+    if not os.path.isdir('phase_scan.Gcal0'):
         logger.critical('Problem with scan-timescale phase calibration')
         raise ValueError('Problem with scan-timescale phase calibration!')
     logger.info("Done.")
     #
-    # Generate phase_scan.Gcal plots
+    # Generate phase_scan.Gcal0 plots
     #
-    casa.plotms(vis='phase_scan.Gcal', xaxis='time', yaxis='phase',
+    casa.plotms(vis='phase_scan.Gcal0', xaxis='time', yaxis='phase',
                 field=field, iteraxis='spw',
                 coloraxis='antenna1',
-                title='Phase GCal (scan; post-bandpass)',
-                plotfile='plotcal_figures/3_phase_scan.png',
+                title='Phase GCal0 (scan; post-bandpass)',
+                plotfile='plotcal_figures/3_phase_scan0.png',
                 overwrite=True, showgui=False, exprange='all')
     #
     # scan timescale amplitude corrections using
     # integration timescale phase calibration
     #
     logger.info("Calculating the amplitude calibration table on scan timescales for all calibrators...")
-    if os.path.isdir('apcal_scan.Gcal'):
-        casa.rmtables('apcal_scan.Gcal')
-    casa.gaincal(vis=vis, caltable="apcal_scan.Gcal", field=field,
+    if os.path.isdir('apcal_scan.Gcal0'):
+        casa.rmtables('apcal_scan.Gcal0')
+    field = ','.join(primary_cals+secondary_cals)
+    mygaintables = gaintables+['delays.Kcal','bandpass.Bcal0',
+                               'phase_int.Gcal1']
+    casa.gaincal(vis=vis, caltable="apcal_scan.Gcal0", field=field,
                  solint="inf", calmode="ap", refant=refant,
-                 minsnr=2.0, minblperant=1,
-                 gaintable=gaintables+['phase_int.Gcal1'])
-    if not os.path.isdir('apcal_scan.Gcal'):
+                 minsnr=2.0, minblperant=1, parang=parang,
+                 gaintable=gaintables+mygaintables)
+    if not os.path.isdir('apcal_scan.Gcal0'):
         logger.critical('Problem with amplitude calibration')
         raise ValueError('Problem with amplitude calibration!')
     logger.info("Done.")
     #
     # Generate apcal_scan.Gcal plots
     #
-    casa.plotms(vis='apcal_scan.Gcal', xaxis='time', yaxis='amplitude',
+    casa.plotms(vis='apcal_scan.Gcal0', xaxis='time', yaxis='amplitude',
                 field=field, iteraxis='spw',
                 coloraxis='antenna1',
-                title='Amplitude GCal (scan; post-bandpass)',
-                plotfile='plotcal_figures/4_apcal_scan.png',
+                title='Amplitude GCal0 (scan; post-bandpass)',
+                plotfile='plotcal_figures/4_apcal_scan0.png',
                 overwrite=True, showgui=False, exprange='all')
     #
-    # set the flux scale
+    # Polarization calibrations
     #
-    logger.info("Calculating the flux calibration table...")
-    if os.path.isdir('flux.cal'):
-        casa.rmtables('flux.cal')
-    casa.fluxscale(vis=vis, caltable="apcal_scan.Gcal", fluxtable="flux.cal",
-                   reference=','.join(flux_cals), incremental=True)
-    if not os.path.isdir('flux.cal'):
-        logger.critical('Problem with flux calibration')
-        raise ValueError('Problem with flux calibration!')
-    logger.info("Done.")
+    if calpol:
+        #
+        # Polarization leakage calibration on scan timescales
+        #
+        logger.info("Calculating the polarization leakage calibration table on scan timescales for polarization calibrators...")
+        if os.path.isdir('polcal_scan.Dcal0'):
+            casa.rmtables('polcal_scan.Dcal0')
+        field = ','.join(pol_cals)
+        mygaintables = gaintables + ['delays.Kcal', 'bandpass.Bcal0',
+                                     'phase_int.Gcal1', 'apcal_scan.Gcal0']
+        casa.polcal(vis=vis, caltable='polcal_scan.Dcal0', field=field,
+                    solint='inf', poltype='D', refant=refant,
+                    minsnr=2.0, minblperant=1,
+                    gaintable=mygaintables)
+        #
+        # Re-do bandpass calibration with polarization leakage
+        # correction. For continuum spws. Combine all scans,
+        # average some channels as defined in configuration file
+        #
+        logger.info("Re-calculating bandpass calibration table for primary calibrators...")
+        if os.path.isdir('bandpass.Bcal1'):
+            casa.rmtables('bandpass.Bcal1')
+        chan_avg = config.get('Bandpass Channel Average','Continuum Channels')
+        if chan_avg == '':
+            solint='inf'
+        else:
+            solint='inf,{0}chan'.format(chan_avg)
+        field = ','.join(primary_cals)
+        mygaintables = gaintables + ['delays.Kcal', 'phase_int.Gcal1',
+                                     'apcal_scan.Gcal0', 'polcal_scan.Dcal0']
+        casa.bandpass(vis=vis, caltable='bandpass.Bcal1', field=field,
+                      spw=my_cont_spws, refant=refant, solint=solint,
+                      combine='scan', solnorm=True, minblperant=1,
+                      parang=parang, gaintable=mygaintables)
+        #
+        # bandpass calibration for line spws. Combine all scans,
+        # average some channels as defined in configuration file,
+        # append to continuum channel bandpass calibration table
+        #
+        chan_avg = config.get('Bandpass Channel Average', 'Line Channels')
+        if chan_avg == '':
+            solint='inf'
+        else:
+            solint='inf,{0}chan'.format(chan_avg)
+        casa.bandpass(vis=vis, caltable='bandpass.Bcal1', field=field,
+                      spw=my_line_spws, refant=refant, solint=solint,
+                      combine='scan', solnorm=True, minblperant=1, append=True,
+                      parang=parang, gaintable=mygaintables)
+        if not os.path.isdir('bandpass.Bcal1'):
+            logger.critical('Problem with bandpass calibration')
+            raise ValueError('Problem with bandpass calibration!')
+        logger.info("Done.")
+        #
+        # Generate bandpass.Bcal1 plots
+        #
+        casa.plotms(vis='bandpass.Bcal1', xaxis='channel', yaxis='amplitude',
+                    field=field, iteraxis='spw',
+                    coloraxis='antenna1',
+                    title='Bandpass BCal1 (post-polcal)',
+                    plotfile='plotcal_figures/5_bandpass1.png',
+                    overwrite=True, showgui=False, exprange='all')
+        #
+        # re-do integration timescale phase corrections for all calibrators
+        # required for accurate amplitude calibration
+        #
+        logger.info("Re-calculating the phase calibration table on integration timescales for all calibrators...")
+        if os.path.isdir('phase_int.Gcal2'):
+            casa.rmtables('phase_int.Gcal2')
+        field = ','.join(primary_cals+secondary_cals)
+        mygaintables = gaintables + ['delays.Kcal', 'polcal_scan.Dcal0',
+                                     'bandpass.Bcal1']
+        casa.gaincal(vis=vis, caltable="phase_int.Gcal2", field=field,
+                     solint="int", calmode="p", refant=refant,
+                     gaintype="G", minsnr=2.0, minblperant=1,
+                     parang=parang, gaintable=mygaintables)
+        if not os.path.isdir('phase_int.Gcal2'):
+            logger.critical('Problem with integration-timescale phase calibration')
+            raise ValueError('Problem with integration-timescale phase calibration!')
+        logger.info("Done.")
+        #
+        # Generate phase_int.Gcal2 plots
+        #
+        casa.plotms(vis='phase_int.Gcal2', xaxis='time', yaxis='phase',
+                    field=field, iteraxis='spw',
+                    coloraxis='antenna1',
+                    title='Phase GCal2 (integration; post-polcal)',
+                    plotfile='plotcal_figures/6_phase_int2.png',
+                    overwrite=True, showgui=False, exprange='all')
+        #
+        # scan timescale phase corrections for all calibrators
+        # required to apply to science targets
+        #
+        logger.info("Calculating the phase calibration table on scan timescales for all calibrators...")
+        if os.path.isdir('phase_scan.Gcal1'):
+            casa.rmtables('phase_scan.Gcal1')
+        field = ','.join(primary_cals+secondary_cals)
+        mygaintables = gaintables + ['delays.Kcal', 'polcal_scan.Dcal0',
+                                     'bandpass.Bcal1']
+        casa.gaincal(vis=vis, caltable="phase_scan.Gcal1", field=field,
+                     solint="inf", calmode="p", refant=refant,
+                     gaintype="G", minsnr=2.0, minblperant=1,
+                     parang=parang, gaintable=mygaintables)
+        if not os.path.isdir('phase_scan.Gcal1'):
+            logger.critical('Problem with scan-timescale phase calibration')
+            raise ValueError('Problem with scan-timescale phase calibration!')
+        logger.info("Done.")
+        #
+        # Generate phase_scan.Gcal1 plots
+        #
+        casa.plotms(vis='phase_scan.Gcal1', xaxis='time', yaxis='phase',
+                    field=field, iteraxis='spw',
+                    coloraxis='antenna1',
+                    title='Phase GCal1 (scan; post-polcal)',
+                    plotfile='plotcal_figures/7_phase_scan1.png',
+                    overwrite=True, showgui=False, exprange='all')
+        #
+        # Re-do scan timescale amplitude corrections
+        # with polarization leakage corrections and updated bandpass
+        # For non-polarization calibrators, determine QU from gains
+        #
+        logger.info("Re-calculating the amplitude calibration table on scan timescales for all calibrators...")
+        if os.path.isdir('apcal_scan.Gcal1'):
+            casa.rmtables('apcal_scan.Gcal1')
+        # First the polarization calibrator(s)
+        field = ','.join(pol_cals)
+        mygaintables = gaintables + ['delays.Kcal', 'polcal_scan.Dcal0',
+                                     'bandpass.Bcal1', 'phase_int.Gcal2']
+        casa.gaincal(vis=vis, caltable="apcal_scan.Gcal1", field=field,
+                     solint="inf", calmode="ap", refant=refant,
+                     minsnr=2.0, minblperant=1, parang=parang,
+                     gaintable=mygaintables)
+        # Loop over other calibrators and get QU from gain table
+        all_fields = casa.vishead(vis=vis, mode='get', hdkey='field')[0]
+        for field in primary_cals+secondary_cals:
+            # skip if this is a polarization calibrator
+            if field in pol_cals:
+                continue
+            # get fieldid
+            fieldid = [all_fields.tolist().index(field)]
+            # get QU
+            qu = qufromgain('apcal_scan.Gcal0', fieldids=fieldid)
+            # set smodel and append to gain table
+            smodel = [1, qu[1][0], qu[1][1], 0]
+            logger.info("Using smodel {0} for {1}".format(smodel, field))
+            casa.gaincal(vis=vis, caltable="apcal_scan.Gcal1", field=field,
+                        solint="inf", calmode="ap", refant=refant,
+                        minsnr=2.0, minblperant=1, parang=parang,
+                        gaintable=mygaintables,
+                        smodel=smodel, append=True)
+        if not os.path.isdir('apcal_scan.Gcal1'):
+            logger.critical('Problem with amplitude calibration')
+            raise ValueError('Problem with amplitude calibration!')
+        logger.info("Done.")
+        #
+        # Generate apcal_scan.Gcal1 plots
+        #
+        casa.plotms(vis='apcal_scan.Gcal1', xaxis='time', yaxis='amplitude',
+                    field=field, iteraxis='spw',
+                    coloraxis='antenna1',
+                    title='Amplitude GCal1 (scan; post-polcal)',
+                    plotfile='plotcal_figures/8_apcal_scan1.png',
+                    overwrite=True, showgui=False, exprange='all')
+        #
+        # Polarization leakage calibration on scan timescales
+        #
+        logger.info("Re-calculating the polarization leakage calibration table on scan timescales for polarization calibrators...")
+        if os.path.isdir('polcal_scan.Dcal1'):
+            casa.rmtables('polcal_scan.Dcal1')
+        field = ','.join(pol_cals)
+        mygaintables = gaintables + ['delays.Kcal', 'bandpass.Bcal1',
+                                     'phase_int.Gcal2', 'apcal_scan.Gcal1']
+        casa.polcal(vis=vis, caltable='polcal_scan.Dcal1', field=field,
+                    solint='inf', poltype='D', refant=refant,
+                    minsnr=2.0, minblperant=1,
+                    gaintable=mygaintables)
+        #
+        # set the flux scale
+        #
+        logger.info("Calculating the flux calibration table...")
+        if os.path.isdir('flux.cal'):
+            casa.rmtables('flux.cal')
+        field = ','.join(flux_cals)
+        casa.fluxscale(vis=vis, caltable="apcal_scan.Gcal1", fluxtable="flux.cal",
+                       reference=field, incremental=True)
+        if not os.path.isdir('flux.cal'):
+            logger.critical('Problem with flux calibration')
+            raise ValueError('Problem with flux calibration!')
+        logger.info("Done.")
+        #
+        # apply calibration solutions to calibrators
+        #
+        logger.info("Applying calibration tables to all calibrators...")
+        mygaintables = gaintables + ['delays.Kcal', 'bandpass.Bcal1',
+                                     'phase_int.Gcal2', 'apcal_scan.Gcal1',
+                                     'polcal_scan.Dcal1', 'flux.cal']
+        for field in primary_cals+secondary_cals:
+            mygainfields = gainfields + ['', '', field, field, '', field]
+            casa.applycal(vis=vis, field=field, calwt=calwt,
+                          parang=parang,
+                          gaintable=mygaintables,
+                          gainfield=mygainfields,
+                          flagbackup=False)
+        logger.info("Done.")
     #
-    # apply calibration solutions to calibrators
+    # No polarization calibrations
     #
-    logger.info("Applying calibration tables to all calibrators...")
-    for field in primary_cals+secondary_cals:
-        casa.applycal(vis=vis, field=field, calwt=calwt,
-                      gaintable=gaintables+['phase_int.Gcal1', 'apcal_scan.Gcal',
-                                           'flux.cal'],
-                      gainfield=gainfields+[field, field, field],
-                      flagbackup=False)
-    logger.info("Done.")
+    else:
+        #
+        # set the flux scale
+        #
+        logger.info("Calculating the flux calibration table...")
+        if os.path.isdir('flux.cal'):
+            casa.rmtables('flux.cal')
+        field = ','.join(flux_cals)
+        casa.fluxscale(vis=vis, caltable="apcal_scan.Gcal0", fluxtable="flux.cal",
+                       reference=field, incremental=True)
+        if not os.path.isdir('flux.cal'):
+            logger.critical('Problem with flux calibration')
+            raise ValueError('Problem with flux calibration!')
+        logger.info("Done.")
+        #
+        # apply calibration solutions to calibrators
+        #
+        logger.info("Applying calibration tables to all calibrators...")
+        mygaintables = gaintables + ['delays.Kcal', 'bandpass.Bcal0',
+                                     'phase_int.Gcal1', 'apcal_scan.Gcal0',
+                                     'flux.cal']
+        for field in primary_cals+secondary_cals:
+            mygainfields = gainfields + ['','',field,field,field]
+            casa.applycal(vis=vis, field=field, calwt=calwt,
+                          parang=parang,gaintable=mygaintables,
+                          gainfield=mygainfields,
+                          flagbackup=False)
+        logger.info("Done.")
     #
     # save flag state
     #
@@ -1208,8 +1445,9 @@ def calibrate_calibrators(vis='', primary_cals=[], secondary_cals=[],
     os.system('pdflatex -interaction=batchmode plotcal_figures.tex')
     logger.info("Done.")
 
-def calibrate_sciencetargets(vis='',science_targets=[], calwt=True,
-                             antpos=True, gaincurve=True, opacity=True):
+def calibrate_sciencetargets(vis='',science_targets=[], calpol=False,
+                             calwt=True, antpos=True, gaincurve=True,
+                             opacity=True, config=None):
     """
     Apply calibration solutions to science targets
 
@@ -1218,6 +1456,8 @@ def calibrate_sciencetargets(vis='',science_targets=[], calwt=True,
         The measurement set
       science_targets :: list of strings
         list of science target names
+      calpol :: boolean
+        if True, calibrate polarization
       calwt :: boolean
         if True, apply calibration weights to data
       antpos :: boolean
@@ -1226,11 +1466,20 @@ def calibrate_sciencetargets(vis='',science_targets=[], calwt=True,
         if True, use gain curve and antenna efficiency corrections
       opacity :: boolean
         if True, use opacity corrections
+      config :: a ConfigParser object
+        The ConfigParser object for this project
     """
     #
     # start logger
     #
     logger = logging.getLogger("main")
+    #
+    # check config
+    #
+    if config is None:
+        logger.critical("Error: Need to supply a config")
+        raise ValueError("Config is None")
+    parang = config.getboolean('Polarization', 'Parallactic Angle Correction')
     #
     # Get calibration tables
     #
@@ -1245,18 +1494,24 @@ def calibrate_sciencetargets(vis='',science_targets=[], calwt=True,
     if opacity and os.path.isdir('opacity.cal'):
         gaintables += ['opacity.cal']
         gainfields += ['']
-    gaintables += ['delays.Kcal', 'bandpass.Bcal','phase_scan.Gcal',
-                  'apcal_scan.Gcal','flux.cal']
-    gainfields += ['','','nearest','nearest','nearest']
+    #
+    # Set gaintables
+    # use nearest field for complex gains and flux tables
+    #
+    if calpol:
+        gaintables += ['delays.Kcal', 'bandpass.Bcal1',
+                       'phase_scan.Gcal1', 'apcal_scan.Gcal1',
+                       'polcalc_scan.Dcal1', 'flux.cal']
+        gainfields += ['', '', 'nearest', 'nearest', '', 'nearest']
+    else:
+        gaintables += ['delays.Kcal', 'bandpass.Bcal0','phase_scan.Gcal0',
+                       'apcal_scan.Gcal0','flux.cal']
+        gainfields += ['','','nearest','nearest','nearest']
     for field in science_targets:
-        #
-        # use all fields in delays and bandpass
-        # use nearest field in complex gains and flux
-        #
         logger.info("Applying calibration solutions to {0}".format(field))
         casa.applycal(vis=vis,field=field, calwt=calwt,
                       gaintable=gaintables,gainfield=gainfields,
-                      flagbackup=False)
+                      parang=parang,flagbackup=False)
     #
     # save the flags
     #
@@ -1518,7 +1773,8 @@ def split_fields(vis='', primary_cals=[], secondary_cals=[], science_targets=[])
     logger.info("Done!")
 
 def main(vis='', config_file='', shadow_tolerance=0.0, quackinterval=10.0,
-         antpos=True, gaincurve=True, opacity=True, calwt=True, auto=''):
+         antpos=True, gaincurve=True, opacity=True, calpol=False,
+         calwt=True, auto=''):
     """
     Run the calibration pipeline
 
@@ -1541,6 +1797,8 @@ def main(vis='', config_file='', shadow_tolerance=0.0, quackinterval=10.0,
         if True, compute gain curve and antenna efficiency corrections
       opacity :: boolean
         if True, compute opacity corrections
+      calpol :: boolean
+        if True, calibration polarization
       calwt :: boolean
         if True, apply calibration weights to data
       auto :: string
@@ -1574,7 +1832,7 @@ def main(vis='', config_file='', shadow_tolerance=0.0, quackinterval=10.0,
     # initial setup
     #
     my_cont_spws,my_line_spws,flux_cals,primary_cals,secondary_cals,\
-        science_targets,refant = setup(vis=vis,config=config)
+        pol_cals,science_targets,refant = setup(vis=vis,config=config)
     #
     # Prompt the user with a menu for each option, or auto-do them
     #
@@ -1618,16 +1876,18 @@ def main(vis='', config_file='', shadow_tolerance=0.0, quackinterval=10.0,
         elif answer == '4':
             calibrate_calibrators(vis=vis, primary_cals=primary_cals, 
                                   secondary_cals=secondary_cals, 
-                                  flux_cals=flux_cals, 
+                                  flux_cals=flux_cals,
+                                  pol_cals=pol_cals,
                                   my_line_spws=my_line_spws, 
                                   my_cont_spws=my_cont_spws, 
-                                  refant=refant, calwt=calwt,
+                                  refant=refant, calpol=calpol,
+                                  calwt=calwt,
                                   antpos=antpos, gaincurve=gaincurve,
                                   opacity=opacity, config=config)
         elif answer == '5':
             calibrate_sciencetargets(vis=vis,science_targets=science_targets,
-                                     calwt=calwt,antpos=antpos, gaincurve=gaincurve,
-                                     opacity=opacity)
+                                     calpol=calpol,calwt=calwt,antpos=antpos, gaincurve=gaincurve,
+                                     opacity=opacity,config=config)
         elif answer == '6':
             auto_flag_sciencetargets(vis=vis, science_targets=science_targets)
         elif answer == '7':
