@@ -397,8 +397,8 @@ class Calibration:
             self.logger.info('Working on spw %d', spw)
             casa.ms.selectinit(datadescid=spw)
             data = casa.ms.getdata(['data'])
-            chans = np.range(data['data'].shape[1])
-            mask = np.zeros(data['data'].shape[1])
+            chans = np.arange(data['data'].shape[1])
+            mask = np.zeros(data['data'].shape[1], dtype=bool)
             mask[bad_chans] = True
             #
             # Interpolate amplitude
