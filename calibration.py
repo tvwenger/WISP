@@ -393,33 +393,43 @@ class Calibration:
         """
         bad_chans = np.array(chans)
         for spw in spws:
-            casa.ms.open(self.vis, nomodify=False)
             self.logger.info('Working on spw %d', spw)
+            casa.ms.open(self.vis, nomodify=False)
             casa.ms.selectinit(datadescid=spw)
+            self.logger.info('Reading data...')
             data = casa.ms.getdata(['data'])
+            self.logger.info('Done.')
             chans = np.arange(data['data'].shape[1])
             mask = np.zeros(data['data'].shape[1], dtype=bool)
             mask[bad_chans] = True
             #
             # Interpolate amplitude
             #
+            self.logger.info('Interpolating amplitude...')
             amp = np.abs(data['data'])
             amp_interp = interp1d(chans[~mask], amp[:, ~mask, :],
                                   axis=1)
             amp[:, mask, :] = amp_interp(chans[mask])
+            self.logger.info('Done.')
             #
             # Interpolate phase
             #
+            self.logger.info('Interpolating phase...')
             phase = np.unwrap(np.angle(data['data']))
             phase_interp = interp1d(chans[~mask], phase[:, ~mask, :],
                                     axis=1)
             phase[:, mask, :] = phase_interp(chans[mask])
+            self.logger.info('Done.')
             #
             # Save
             #
+            self.logger.info('Updating visibilities...')
             data['data'] = amp*np.cos(phase) + 1.j*amp*np.sin(phase)
+            self.logger.info('Done.')
+            self.logger('Saving to measurement set...')
             casa.ms.putdata(data)
             casa.ms.done()
+            self.logger.info('Done.')
             del data
             del amp
             del amp_interp
