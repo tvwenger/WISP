@@ -426,10 +426,10 @@ class Calibration:
             self.logger.info('Updating visibilities...')
             data['data'] = amp*np.cos(phase) + 1.j*amp*np.sin(phase)
             self.logger.info('Done.')
-            self.logger('Saving to measurement set...')
+            self.logger.info('Saving to measurement set...')
             casa.ms.putdata(data)
-            casa.ms.done()
             self.logger.info('Done.')
+            casa.ms.done()
             del data
             del amp
             del amp_interp
@@ -1101,7 +1101,6 @@ class Calibration:
             return
         #
         # Polarization leakage calibration on scan timescales
-        # Only continuum spws
         #
         caltable = 'polcal_scan.Dcal0'
         gaintables = self.gaintables + [
@@ -1109,15 +1108,13 @@ class Calibration:
             self.apcal_scan]
         self.logger.info('Calculating the polarization leakage '
                          'calibration table on scan timescales for '
-                         'polarization calibrators in '
-                         'continuum spectral windows...')
+                         'polarization calibrators ...')
         if os.path.isdir(caltable):
             casa.rmtables(caltable)
         field = ','.join(self.pol_cals)
         casa.polcal(vis=self.vis, caltable=caltable, field=field,
-                    spw=self.cont_spws, solint='inf', poltype='D',
-                    refant=self.refant, minsnr=2.0, minblperant=1,
-                    gaintable=gaintables)
+                    solint='inf', poltype='D', refant=self.refant,
+                    minsnr=2.0, minblperant=1, gaintable=gaintables)
         if not os.path.isdir(caltable):
             self.logger.critical('Problem with polarization '
                                  'leakage calibration')
@@ -1159,6 +1156,8 @@ class Calibration:
             estimate_u = np.mean([qu[fieldid][1] for fieldid in
                                   fieldids])
             # set polarization solution
+            self.logger.info('For %s using Q=%.4f, U=%.4f',
+                             field, estimate_q, estimate_u)
             smodels[field] = [1, estimate_q, estimate_u, 0]
         #
         # bandpass calibration for continuum spws. Combine all scans,
@@ -1204,22 +1203,34 @@ class Calibration:
         # bandpass calibration for line spws. Combine all scans,
         # average some channels as defined in configuration file,
         # append to continuum channel bandpass calibration table.
-        # No polarization leakage calibration
         #
-        gaintables = self.gaintables + [
-            self.delays, self.phase_int, self.apcal_scan]
         chan_avg = self.config.get('Bandpass Channel Average',
                                    'Line Channels')
         if chan_avg == '':
             solint = 'inf'
         else:
             solint = 'inf,{0}chan'.format(chan_avg)
-        field = ','.join(self.pri_cals)
+        #
+        # First the polarization calibrator
+        #
+        field = ','.join(self.pol_cals)
         casa.bandpass(vis=self.vis, caltable=caltable, field=field,
                       spw=self.line_spws, refant=self.refant,
                       solint=solint, combine='scan', solnorm=True,
-                      minblperant=1, append=True, parang=self.parang,
+                      minblperant=1, parang=self.parang,
                       gaintable=gaintables)
+        #
+        # Then the other primary calibrators
+        #
+        for field in self.pri_cals:
+            if field in self.pol_cals:
+                continue
+            casa.bandpass(vis=self.vis, caltable=caltable,
+                          field=field, spw=self.line_spws,
+                          refant=self.refant, solint=solint,
+                          combine='scan', solnorm=True, minblperant=1,
+                          parang=self.parang, gaintable=gaintables,
+                          smodel=smodels[field], append=True)
         if not os.path.isdir(caltable):
             self.logger.critical('Problem with bandpass calibration')
             raise ValueError('Problem with bandpass calibration!')
@@ -1227,9 +1238,7 @@ class Calibration:
         self.logger.info('Done.')
         #
         # integration timescale phase corrections for all calibrators
-        # required for accurate amplitude calibration. First for the
-        # continuum spectral windows including polarization leakage
-        # calibration
+        # required for accurate amplitude calibration.
         #
         caltable = 'phase_int.Gcal2'
         gaintables = self.gaintables + [
@@ -1244,10 +1253,9 @@ class Calibration:
         #
         field = ','.join(self.pol_cals)
         casa.gaincal(vis=self.vis, caltable=caltable, field=field,
-                     spw=self.cont_spws, solint='int', calmode='p',
-                     refant=self.refant, gaintype='G', minsnr=2.0,
-                     minblperant=1, parang=self.parang,
-                     gaintable=gaintables)
+                     solint='int', calmode='p', refant=self.refant,
+                     gaintype='G', minsnr=2.0, minblperant=1,
+                     parang=self.parang, gaintable=gaintables)
         #
         # Then the others
         #
@@ -1255,21 +1263,11 @@ class Calibration:
             if field in self.pol_cals:
                 continue
             casa.gaincal(vis=self.vis, caltable=caltable, field=field,
-                         spw=self.cont_spws, solint='int',
-                         calmode='p', refant=self.refant,
-                         gaintype='G', minsnr=2.0, minblperant=1,
-                         parang=self.parang, gaintable=gaintables,
-                         smodel=smodels[field], append=True)
-        #
-        # Now the line spectral windows
-        #
-        gaintables = self.gaintables + [self.delays, self.bandpass]
-        field = ','.join(self.pri_cals+self.sec_cals)
-        casa.gaincal(vis=self.vis, caltable=caltable, field=field,
-                     spw=self.line_spws, solint='int', calmode='p',
-                     refant=self.refant, gaintype='G', minsnr=2.0,
-                     minblperant=1, parang=self.parang,
-                     gaintable=gaintables, append=True)
+                         solint='int', calmode='p',
+                         refant=self.refant, gaintype='G', minsnr=2.0,
+                         minblperant=1, parang=self.parang,
+                         gaintable=gaintables, smodel=smodels[field],
+                         append=True)
         if not os.path.isdir(caltable):
             self.logger.critical('Problem with integration-timescale '
                                  'phase calibration')
@@ -1278,9 +1276,7 @@ class Calibration:
         self.phase_int = caltable
         self.logger.info('Done.')
         #
-        # scan timescale phase corrections for all calibrators. First
-        # for the continuum spectral windows including polarization
-        # leakage calibration
+        # scan timescale phase corrections for all calibrators.
         #
         caltable = 'phase_scan.Gcal1'
         gaintables = self.gaintables + [
@@ -1295,10 +1291,9 @@ class Calibration:
         #
         field = ','.join(self.pol_cals)
         casa.gaincal(vis=self.vis, caltable=caltable, field=field,
-                     spw=self.cont_spws, solint='inf', calmode='p',
-                     refant=self.refant, gaintype='G', minsnr=2.0,
-                     minblperant=1, parang=self.parang,
-                     gaintable=gaintables)
+                     solint='inf', calmode='p', refant=self.refant,
+                     gaintype='G', minsnr=2.0, minblperant=1,
+                     parang=self.parang, gaintable=gaintables)
         #
         # Then the others
         #
@@ -1306,21 +1301,11 @@ class Calibration:
             if field in self.pol_cals:
                 continue
             casa.gaincal(vis=self.vis, caltable=caltable, field=field,
-                         spw=self.cont_spws, solint='inf',
-                         calmode='p', refant=self.refant,
-                         gaintype='G', minsnr=2.0, minblperant=1,
-                         parang=self.parang, gaintable=gaintables,
-                         smodel=smodels[field], append=True)
-        #
-        # Now the line spectral windows
-        #
-        gaintables = self.gaintables + [self.delays, self.bandpass]
-        field = ','.join(self.pri_cals+self.sec_cals)
-        casa.gaincal(vis=self.vis, caltable=caltable, field=field,
-                     spw=self.line_spws, solint='inf', calmode='p',
-                     refant=self.refant, gaintype='G', minsnr=2.0,
-                     minblperant=1, parang=self.parang,
-                     gaintable=gaintables, append=True)
+                         solint='inf', calmode='p',
+                         refant=self.refant, gaintype='G', minsnr=2.0,
+                         minblperant=1, parang=self.parang,
+                         gaintable=gaintables, smodel=smodels[field],
+                         append=True)
         if not os.path.isdir(caltable):
             self.logger.critical('Problem with scan-timescale '
                                  'phase calibration')
@@ -1345,9 +1330,9 @@ class Calibration:
         #
         field = ','.join(self.pol_cals)
         casa.gaincal(vis=self.vis, caltable=caltable, field=field,
-                     spw=self.cont_spws, solint='inf', calmode='ap',
-                     refant=self.refant, minsnr=2.0, minblperant=1,
-                     parang=self.parang, gaintable=gaintables)
+                     solint='inf', calmode='ap', refant=self.refant,
+                     minsnr=2.0, minblperant=1, parang=self.parang,
+                     gaintable=gaintables)
         #
         # Now the other calibrators, which we append to the caltable
         #
@@ -1355,21 +1340,11 @@ class Calibration:
             if field in self.pol_cals:
                 continue
             casa.gaincal(vis=self.vis, caltable=caltable, field=field,
-                         spw=self.cont_spws, solint="inf",
-                         calmode="ap", refant=self.refant, minsnr=2.0,
+                         solint="inf", calmode="ap",
+                         refant=self.refant, minsnr=2.0,
                          minblperant=1, parang=self.parang,
                          gaintable=gaintables, smodel=smodels[field],
                          append=True)
-        #
-        # Now the line spectral windows
-        #
-        gaintables = self.gaintables + [
-            self.delays, self.bandpass, self.phase_int]
-        casa.gaincal(vis=self.vis, caltable=caltable, field=field,
-                     spw=self.line_spws, solint="inf", calmode="ap",
-                     refant=self.refant, minsnr=2.0, minblperant=1,
-                     parang=self.parang, gaintable=gaintables,
-                     append=True)
         if not os.path.isdir(caltable):
             self.logger.critical('Problem with amplitude calibration')
             raise ValueError('Problem with amplitude calibration!')
@@ -1389,9 +1364,8 @@ class Calibration:
             casa.rmtables(caltable)
         field = ','.join(self.pol_cals)
         casa.polcal(vis=self.vis, caltable=caltable, field=field,
-                    spw=self.cont_spws, solint='inf', poltype='D',
-                    refant=self.refant, minsnr=2.0, minblperant=1,
-                    gaintable=gaintables)
+                    solint='inf', poltype='D', refant=self.refant,
+                    minsnr=2.0, minblperant=1, gaintable=gaintables)
         if not os.path.isdir(caltable):
             self.logger.critical('Problem with polarization '
                                  'leakage calibration')
