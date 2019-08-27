@@ -49,6 +49,7 @@ import logging
 import logging.config
 
 import numpy as np
+from scipy.interpolate import interp1d
 
 import __main__ as casa
 from recipes.atcapolhelpers import qufromgain
@@ -390,36 +391,40 @@ class Calibration:
 
         Returns: Nothing
         """
+        bad_chans = np.array(chans)
         for spw in spws:
             casa.ms.open(self.vis, nomodify=False)
             self.logger.info('Working on spw %d', spw)
             casa.ms.selectinit(datadescid=spw)
             data = casa.ms.getdata(['data'])
+            chans = np.range(data['data'].shape[1])
+            mask = np.zeros(data['data'].shape[1])
+            mask[bad_chans] = True
             #
-            # Loop over time and polarization axes
+            # Interpolate amplitude
             #
-            for time_ind in range(len(data['data'][0, 0, :])):
-                for pol_ind in range(len(data['data'][:, 0, 0])):
-                    # calculate amplitude from complex visibilities
-                    amp = np.abs(data['data'][pol_ind, :, time_ind])
-                    # interpolate
-                    amp[chans] = np.interp(
-                        chans, np.delete(range(len(amp)), chans),
-                        np.delete(amp, chans))
-                    # calculate and unwrap phase from visibility
-                    phase = np.unwrap(
-                        np.angle(data['data'][pol_ind, :, time_ind]))
-                    # interpolate
-                    phase[chans] = np.interp(
-                        chans, np.delete(range(len(phase)), chans),
-                        np.delete(phase, chans))
-                    # re-calculate complex visibilities
-                    data['data'][pol_ind, :, time_ind] = \
-                        amp*np.cos(phase) + 1.j*amp*np.sin(phase)
-            # save new data
+            amp = np.abs(data['data'])
+            amp_interp = interp1d(chans[~mask], amp[:, ~mask, :],
+                                  axis=1)
+            amp[:, mask, :] = amp_interp(chans[mask])
+            #
+            # Interpolate phase
+            #
+            phase = np.unwrap(np.angle(data['data']))
+            phase_interp = interp1d(chans[~mask], phase[:, ~mask, :],
+                                    axis=1)
+            phase[:, mask, :] = phase_interp(chans[mask])
+            #
+            # Save
+            #
+            data['data'] = amp*np.cos(phase) + 1.j*amp*np.sin(phase)
             casa.ms.putdata(data)
             casa.ms.done()
-            data = 0
+            del data
+            del amp
+            del amp_interp
+            del phase
+            del phase_interp
             gc.collect()
 
     def preliminary_flagging(self):
