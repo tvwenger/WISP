@@ -238,6 +238,7 @@ class Calibration:
         self.logger.info('Looking for field names...')
         self.all_fields = casa.vishead(
             vis=self.vis, mode='get', hdkey='field')[0]
+        self.all_fields = list(set(self.all_fields))
         self.logger.info('Found fields: %s',
                          ', '.join(self.all_fields))
         #
@@ -1114,18 +1115,28 @@ class Calibration:
             #
             # Now the other calibrators, which we append to the caltable
             #
+            # need to get the field ID numbers, so get all fields in
+            # order
+            field_order = casa.vishead(vis=self.vis, mode='get',
+                                       hdkey='field')[0]
             for field in self.pri_cals+self.sec_cals:
                 # skip if this is a polarization calibrator
                 if field in self.pol_cals:
                     continue
-                # get fieldid
-                fieldid = [self.all_fields.tolist().index(field)]
-                # get QU
-                qu = qufromgain(self.apcal_scan, fieldids=fieldid)
+                # get fieldid(s)
+                fieldids = [i for i in range(len(field_order))
+                            if field_order[i] == field]
+                # get QU first-order correction.
+                qu = qufromgain(self.apcal_scan, fieldids=fieldids)
+                # average all spectral windows.
+                estimate_q = np.mean([qu[fieldid][0] for fieldid in
+                                     fieldids])
+                estimate_u = np.mean([qu[fieldid][1] for fieldid in
+                                      fieldids])
                 # set polarization solution
-                smodel = [1, qu[1][0], qu[1][1], 0]
-                self.logger.info("Using smodel [%s] for %s",
-                                 ', '.join(smodel), field)
+                smodel = [1, estimate_q, estimate_u, 0]
+                self.logger.info('For %s using Q=%.2f, U=%.2f',
+                                 field, smodel[1], smodel[1])
                 casa.gaincal(vis=self.vis, caltable=caltable,
                              field=field, solint="inf", calmode="ap",
                              refant=self.refant, minsnr=2.0,
@@ -1390,28 +1401,28 @@ class Calibration:
         #
         # Generate calibration plots
         #
-        field = self.pri_cals
+        field = ','.join(self.pri_cals)
         casa.plotms(vis=self.bandpass, xaxis='channel',
                     yaxis='amplitude', field=field, iteraxis='spw',
                     coloraxis='antenna1',
                     title=self.bandpass.replace('_', '\_'),
                     plotfile='plotcal_figures/0_bandpass.png',
                     overwrite=True, showgui=False, exprange='all')
-        field = self.pri_cals+self.sec_cals
+        field = ','.join(self.pri_cals+self.sec_cals)
         casa.plotms(vis=self.phase_int, xaxis='time', yaxis='phase',
                     field=field, iteraxis='spw',
                     coloraxis='antenna1',
                     title=self.phase_int.replace('_', '\_'),
                     plotfile='plotcal_figures/1_phase_int.png',
                     overwrite=True, showgui=False, exprange='all')
-        field = self.pri_cals+self.sec_cals
+        field = ','.join(self.pri_cals+self.sec_cals)
         casa.plotms(vis=self.phase_scan, xaxis='time', yaxis='phase',
                     field=field, iteraxis='spw',
                     coloraxis='antenna1',
                     title=self.phase_scan.replace('_', '\_'),
                     plotfile='plotcal_figures/2_phase_scan.png',
                     overwrite=True, showgui=False, exprange='all')
-        field = self.pri_cals+self.sec_cals
+        field = ','.join(self.pri_cals+self.sec_cals)
         casa.plotms(vis=self.apcal_scan, xaxis='time',
                     yaxis='amplitude', field=field, iteraxis='spw',
                     coloraxis='antenna1',
