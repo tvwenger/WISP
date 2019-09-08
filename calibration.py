@@ -35,6 +35,7 @@ Trey V. Wenger December 2018 - V1.1
 Trey V. Wenger August 2019 - V2.0
     Added polarization calibration.
     Re-designed to OOP framework.
+    Speed up interpolation.
 """
 
 import os
@@ -42,7 +43,6 @@ import glob
 import re
 import time
 import pickle
-import gc
 
 import ConfigParser
 import logging
@@ -325,6 +325,11 @@ class Calibration:
                          config_pol_cals.splitlines()
                          if field in self.all_fields]
         #
+        # Check that polarization calibrator exists if we need it
+        #
+        if self.calpol and not self.pol_cals:
+            raise ValueError('No polarization calibrator found.')
+        #
         # check that polarization calibrators are in primary list
         #
         for pol_cal in self.pol_cals:
@@ -392,50 +397,74 @@ class Calibration:
         Returns: Nothing
         """
         bad_chans = np.array(chans)
-        for spw in spws:
-            self.logger.info('Working on spw %d', spw)
-            casa.ms.open(self.vis, nomodify=False)
-            casa.ms.selectinit(datadescid=spw)
-            self.logger.info('Reading data...')
-            data = casa.ms.getdata(['data'])
-            self.logger.info('Done.')
-            chans = np.arange(data['data'].shape[1])
-            mask = np.zeros(data['data'].shape[1], dtype=bool)
+        #
+        # Open MS for modifications, and get list of data_desc_ids
+        #
+        casa.ms.open(self.vis, nomodify=False)
+        spwinfo = casa.ms.getspectralwindowinfo()
+        datadescids = natural_sort(spwinfo.keys())
+        for datadescid in datadescids:
+            #
+            # Check that the spw associated with this data_desc_id
+            # is one that needs interpolated
+            #
+            if spwinfo[datadescid]['SpectralWindowId'] not in spws:
+                continue
+            self.logger.info('Working on spw %d',
+                             spwinfo[datadescid]['SpectralWindowId'])
+            nchans = spwinfo[datadescid]['NumChan']
+            chans = np.arange(nchans)
+            mask = np.zeros(nchans, dtype=bool)
             mask[bad_chans] = True
             #
-            # Interpolate amplitude
+            # Select data_desc_id, and initialize iterator
             #
-            self.logger.info('Interpolating amplitude...')
-            amp = np.abs(data['data'])
-            amp_interp = interp1d(chans[~mask], amp[:, ~mask, :],
-                                  axis=1)
-            amp[:, mask, :] = amp_interp(chans[mask])
+            casa.ms.selectinit(datadescid=int(datadescid))
+            nrows = casa.ms.nrow(selected=True)
+            casa.ms.iterinit()
+            casa.ms.iterorigin()
+            #
+            # Iterate over chunks
+            #
+            while True:
+                #
+                # get data
+                #
+                rec = casa.ms.getdata(['data'])
+                #
+                # interpolate real part
+                #
+                real = np.real(rec['data'])
+                real_interp = interp1d(
+                    chans[~mask], real[:, ~mask, :], axis=1)
+                real[:, mask, :] = real_interp(chans[mask])
+                #
+                # interpolate phase
+                #
+                imag = np.imag(rec['data'])
+                imag_interp = interp1d(
+                    chans[~mask], imag[:, ~mask, :], axis=1)
+                imag[:, mask, :] = imag_interp(chans[mask])
+                #
+                # save and store
+                #
+                rec['data'] = real + 1.j*imag
+                casa.ms.putdata(rec)
+                #
+                # Get next chunk
+                #
+                if not casa.ms.iternext():
+                    break
+            #
+            # Terminate iterator and reset selection
+            #
+            casa.ms.iterend()
+            casa.ms.selectinit(reset=True)
             self.logger.info('Done.')
-            #
-            # Interpolate phase
-            #
-            self.logger.info('Interpolating phase...')
-            phase = np.unwrap(np.angle(data['data']))
-            phase_interp = interp1d(chans[~mask], phase[:, ~mask, :],
-                                    axis=1)
-            phase[:, mask, :] = phase_interp(chans[mask])
-            self.logger.info('Done.')
-            #
-            # Save
-            #
-            self.logger.info('Updating visibilities...')
-            data['data'] = amp*np.cos(phase) + 1.j*amp*np.sin(phase)
-            self.logger.info('Done.')
-            self.logger.info('Saving to measurement set...')
-            casa.ms.putdata(data)
-            self.logger.info('Done.')
-            casa.ms.done()
-            del data
-            del amp
-            del amp_interp
-            del phase
-            del phase_interp
-            gc.collect()
+        #
+        # Close measurement set
+        #
+        casa.ms.close()
 
     def preliminary_flagging(self):
         """
@@ -459,11 +488,13 @@ class Calibration:
         #
         # Flag the beginning of each scan
         #
-        self.logger.info('Flagging the beginning of each scan (quack)...')
-        casa.flagdata(vis=self.vis, mode='quack',
-                      quackinterval=self.quack_interval,
-                      flagbackup=False, extendflags=False)
-        self.logger.info('Done.')
+        if self.quack_interval > 0:
+            self.logger.info('Flagging the first %f of each scan...',
+                             self.quack_interval)
+            casa.flagdata(vis=self.vis, mode='quack',
+                          quackinterval=self.quack_interval,
+                          flagbackup=False, extendflags=False)
+            self.logger.info('Done.')
         #
         # Flag scans from configuration file
         #
@@ -569,22 +600,9 @@ class Calibration:
         Returns: Nothing
         """
         #
-        # check if calibrators have corrected datacolumn
-        #
-        field = ','.join(self.pri_cals+self.sec_cals)
-        stat = None
-        self.logger.info('Checking if ms contains corrected data '
-                         'column...')
-        stat = casa.visstat(vis=self.vis, field=field, spw='0',
-                            datacolumn='corrected')
-        if stat is None:
-            self.logger.critical('Done. ms does not contain corrected '
-                                 'data column. Skipping.')
-            return
-        self.logger.info('Done. ms does contain corrected data column.')
-        #
         # Run rflag on calibrated data
         #
+        field = ','.join(self.pri_cals+self.sec_cals)
         self.logger.info('Running rflag on corrected data column...')
         casa.flagdata(vis=self.vis, mode='rflag', field=field,
                       flagbackup=False, datacolumn='corrected',
@@ -609,25 +627,19 @@ class Calibration:
         Returns: Nothing
         """
         #
-        # check if calibrators have corrected datacolumn
+        # which datacolumn?
         #
-        field = ','.join(self.pri_cals+self.sec_cals)
-        stat = None
-        self.logger.info('Checking if ms contains corrected data '
-                         'column...')
-        stat = casa.visstat(vis=self.vis, spw='0', field=field,
-                            datacolumn='corrected')
-        if stat is None:
-            self.logger.info('Done. ms does not contain corrected '
-                             'data column.')
-            datacolumn = 'data'
-        else:
-            self.logger.info('Done. ms does contain corrected data '
-                             'column.')
-            datacolumn = 'corrected'
+        datacolumn = input('Datacolumn? (data or corrected) ')
+        #
+        # Remove previous figures
+        #
+        fnames = glob.glob('calibrator_figures/*.png')
+        for fname in fnames:
+            os.remove(fname)
         #
         # Generate the plots
         #
+        field = ','.join(self.pri_cals+self.sec_cals)
         self.logger.info('Generating plots for manual inspection...')
         corr = self.config.get('Polarization', 'Polarization')
         plotnum = 0
@@ -986,42 +998,19 @@ class Calibration:
         Returns: Nothing
         """
         #
-        # bandpass calibration for continuum spws. Combine all scans,
-        # average some channels as defined in configuration file
+        # bandpass calibration. Combine all scans.
         #
         caltable = 'bandpass.Bcal0'
         gaintables = self.gaintables + [self.delays, self.phase_int]
         self.logger.info('Calculating bandpass calibration table for '
                          'primary calibrators...')
+        field = ','.join(self.pri_cals)
         if os.path.isdir(caltable):
             casa.rmtables(caltable)
-        chan_avg = self.config.get('Bandpass Channel Average',
-                                   'Continuum Channels')
-        if chan_avg == '':
-            solint = 'inf'
-        else:
-            solint = 'inf,{0}chan'.format(chan_avg)
-        field = ','.join(self.pri_cals)
         casa.bandpass(vis=self.vis, caltable=caltable, field=field,
-                      spw=self.cont_spws, refant=self.refant,
-                      solint=solint, combine='scan', solnorm=True,
+                      refant=self.refant,
+                      solint='inf', combine='scan', solnorm=True,
                       minblperant=1, parang=self.parang,
-                      gaintable=gaintables)
-        #
-        # bandpass calibration for line spws. Combine all scans,
-        # average some channels as defined in configuration file,
-        # append to continuum channel bandpass calibration table
-        #
-        chan_avg = self.config.get('Bandpass Channel Average',
-                                   'Line Channels')
-        if chan_avg == '':
-            solint = 'inf'
-        else:
-            solint = 'inf,{0}chan'.format(chan_avg)
-        casa.bandpass(vis=self.vis, caltable=caltable, field=field,
-                      spw=self.line_spws, refant=self.refant,
-                      solint=solint, combine='scan', solnorm=True,
-                      minblperant=1, append=True, parang=self.parang,
                       gaintable=gaintables)
         if not os.path.isdir(caltable):
             self.logger.critical('Problem with bandpass calibration')
@@ -1152,17 +1141,15 @@ class Calibration:
             qu = qufromgain(self.apcal_scan, fieldids=fieldids)
             # average all spectral windows.
             estimate_q = np.mean([qu[fieldid][0] for fieldid in
-                                  fieldids])
+                                  fieldids if fieldid in qu.keys()])
             estimate_u = np.mean([qu[fieldid][1] for fieldid in
-                                  fieldids])
+                                  fieldids if fieldid in qu.keys()])
             # set polarization solution
             self.logger.info('For %s using Q=%.4f, U=%.4f',
                              field, estimate_q, estimate_u)
             smodels[field] = [1, estimate_q, estimate_u, 0]
         #
-        # bandpass calibration for continuum spws. Combine all scans,
-        # average some channels as defined in configuration file,
-        # and apply polarization leakage calibration
+        # bandpass calibration. Combine all scans
         #
         caltable = 'bandpass.Bcal1'
         gaintables = self.gaintables + [
@@ -1172,19 +1159,13 @@ class Calibration:
                          'primary calibrators...')
         if os.path.isdir(caltable):
             casa.rmtables(caltable)
-        chan_avg = self.config.get('Bandpass Channel Average',
-                                   'Continuum Channels')
-        if chan_avg == '':
-            solint = 'inf'
-        else:
-            solint = 'inf,{0}chan'.format(chan_avg)
         #
         # First the polarization calibrator
         #
         field = ','.join(self.pol_cals)
         casa.bandpass(vis=self.vis, caltable=caltable, field=field,
-                      spw=self.cont_spws, refant=self.refant,
-                      solint=solint, combine='scan', solnorm=True,
+                      refant=self.refant,
+                      solint='inf', combine='scan', solnorm=True,
                       minblperant=1, parang=self.parang,
                       gaintable=gaintables)
         #
@@ -1194,40 +1175,8 @@ class Calibration:
             if field in self.pol_cals:
                 continue
             casa.bandpass(vis=self.vis, caltable=caltable,
-                          field=field, spw=self.cont_spws,
-                          refant=self.refant, solint=solint,
-                          combine='scan', solnorm=True, minblperant=1,
-                          parang=self.parang, gaintable=gaintables,
-                          smodel=smodels[field], append=True)
-        #
-        # bandpass calibration for line spws. Combine all scans,
-        # average some channels as defined in configuration file,
-        # append to continuum channel bandpass calibration table.
-        #
-        chan_avg = self.config.get('Bandpass Channel Average',
-                                   'Line Channels')
-        if chan_avg == '':
-            solint = 'inf'
-        else:
-            solint = 'inf,{0}chan'.format(chan_avg)
-        #
-        # First the polarization calibrator
-        #
-        field = ','.join(self.pol_cals)
-        casa.bandpass(vis=self.vis, caltable=caltable, field=field,
-                      spw=self.line_spws, refant=self.refant,
-                      solint=solint, combine='scan', solnorm=True,
-                      minblperant=1, parang=self.parang,
-                      gaintable=gaintables)
-        #
-        # Then the other primary calibrators
-        #
-        for field in self.pri_cals:
-            if field in self.pol_cals:
-                continue
-            casa.bandpass(vis=self.vis, caltable=caltable,
-                          field=field, spw=self.line_spws,
-                          refant=self.refant, solint=solint,
+                          field=field, 
+                          refant=self.refant, solint='inf',
                           combine='scan', solnorm=True, minblperant=1,
                           parang=self.parang, gaintable=gaintables,
                           smodel=smodels[field], append=True)
@@ -1581,6 +1530,12 @@ class Calibration:
         self.logger.info('Done.')
         self.save_flags('calibrate')
         #
+        # Remove previous figures
+        #
+        fnames = glob.glob('plotcal_figures/*.png')
+        for fname in fnames:
+            os.remove(fname)
+        #
         # Generate calibration plots
         #
         field = ','.join(self.pri_cals)
@@ -1700,6 +1655,12 @@ class Calibration:
         plots = []
         corr = self.config.get('Polarization', 'Polarization')
         datacolumn = 'corrected'
+        #
+        # Remove previous figures
+        #
+        fnames = glob.glob('science_figures/*.png')
+        for fname in fnames:
+            os.remove(fname)
         for field in self.sci_targets:
             #
             # Amplitude vs UV-distance (in wavelength units)
@@ -1725,7 +1686,8 @@ class Calibration:
                         field=field, ydatacolumn=datacolumn,
                         iteraxis='spw', avgchannel='1e7',
                         coloraxis='baseline', correlation=corr,
-                        overwrite=True, showgui=False, exprange='all')
+                        title=title, plotfile=plotfile, overwrite=True,
+                        showgui=False, exprange='all')
             plots.append({'field':field,
                           'xaxis':'time', 'yaxis':'amp',
                           'avgtime':'', 'avgchannel':'1e7'})
@@ -1739,6 +1701,7 @@ class Calibration:
                         field=field, ydatacolumn=datacolumn,
                         iteraxis='spw', avgtime='1e7',
                         coloraxis='baseline', correlation=corr,
+                        title=title, plotfile=plotfile, overwrite=True,
                         showgui=False, exprange='all')
             plots.append({'field':field,
                           'xaxis':'channel', 'yaxis':'amp',
