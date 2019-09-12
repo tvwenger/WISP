@@ -912,22 +912,9 @@ class Calibration:
         Returns: Nothing
         """
         #
-        # check if calibrators have corrected datacolumn
+        # which datacolumn?
         #
-        field = ','.join(self.pri_cals+self.sec_cals)
-        stat = None
-        self.logger.info('Checking if ms contains corrected data '
-                         'column...')
-        stat = casa.visstat(vis=self.vis, spw='0', field=field,
-                            datacolumn='corrected')
-        if stat is None:
-            self.logger.info('Done. ms does not contain corrected '
-                             'data column.')
-            datacolumn = 'data'
-        else:
-            self.logger.info('Done. ms does contain corrected data '
-                             'column.')
-            datacolumn = 'corrected'
+        datacolumn = input('Datacolumn? (data or corrected) ')
         #
         # Read the plot list from the pickle object
         #
@@ -1126,17 +1113,14 @@ class Calibration:
         # Get source polarization estimates
         #
         smodels = {}
-        # need to get the field ID numbers, so get all fields in
-        # order
-        field_order = casa.vishead(vis=self.vis, mode='get',
-                                   hdkey='field')[0]
         for field in self.pri_cals+self.sec_cals:
             # skip if this is a polarization calibrator
             if field in self.pol_cals:
                 continue
             # get fieldid(s)
-            fieldids = [i for i in range(len(field_order))
-                        if field_order[i] == field]
+            casa.msmd.open(self.vis)
+            fieldids = list(casa.msmd.fieldsforname(field))
+            casa.msmd.close()
             # get QU first-order correction.
             qu = qufromgain(self.apcal_scan, fieldids=fieldids)
             # average all spectral windows.
