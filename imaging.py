@@ -1413,7 +1413,6 @@ class Imaging:
         fname = '{0}.lineplots.tex'.format(self.field)
         if self.uvtaper:
             fname = '{0}.uvtaper.lineplots.tex'.format(self.field)
-        fname = os.path.join(self.outdir, fname)
         with open(os.path.join(self.outdir, fname), 'w') as f:
             f.write(r'\documentclass{article}'+'\n')
             f.write(r'\usepackage{graphicx}'+'\n')

@@ -122,8 +122,6 @@ class SelfCalibration:
         #
         # create directories for figures
         #
-        if not os.path.isdir('selfcal_figures'):
-            os.makedirs('selfcal_figures')
         if not os.path.isdir('plotcal_figures'):
             os.makedirs('plotcal_figures')
 
@@ -144,158 +142,6 @@ class SelfCalibration:
         casa.flagmanager(vis=self.vis, mode='save',
                          versionname=versionname)
         self.logger.info('Done')
-
-    def selfcal_plots(self):
-        """
-        Generate diagnostic visiblity plots for self-cal field.
-
-        Inputs: Nothing
-
-        Returns: Nothing
-        """
-        #
-        # which datacolumn?
-        #
-        datacolumn = 'corrected'
-        #
-        # Remove previous figures
-        #
-        fnames = glob.glob('selfcal_figures/*.png')
-        for fname in fnames:
-            os.remove(fname)
-        #
-        # Generate the plots
-        #
-        self.logger.info('Generating visibility plots...')
-        corr = self.config.get('Polarization', 'Polarization')
-        plotnum = 0
-        plots = []
-        for field in [self.field]:
-            #
-            # Phase vs. Amplitude
-            #
-            title = 'PlotID: {0} Field: {1}'.format(plotnum, field)
-            plotfile = 'selfcal_figures/{0}.png'.format(plotnum)
-            casa.plotms(vis=self.vis, xaxis='amp', yaxis='phase',
-                        field=field, ydatacolumn=datacolumn,
-                        iteraxis='spw', coloraxis='baseline',
-                        correlation=corr, title=title,
-                        plotfile=plotfile, overwrite=True,
-                        showgui=False, exprange='all')
-            plots.append({'field':field,
-                          'xaxis':'amp', 'yaxis':'phase',
-                          'avgtime':'', 'avgchannel':''})
-            plotnum += 1
-            #
-            # Amplitude vs UV-distance (in wavelength units)
-            #
-            title = 'PlotID: {0} Field: {1}'.format(plotnum, field)
-            plotfile = 'selfcal_figures/{0}.png'.format(plotnum)
-            casa.plotms(vis=self.vis, xaxis='uvwave', yaxis='amp',
-                        field=field, ydatacolumn=datacolumn,
-                        iteraxis='spw', coloraxis='baseline',
-                        correlation=corr, title=title,
-                        plotfile=plotfile, overwrite=True,
-                        showgui=False, exprange='all')
-            plots.append({'field':field,
-                          'xaxis':'uvwave', 'yaxis':'amp',
-                          'avgtime':'', 'avgchannel':''})
-            plotnum += 1
-            #
-            # Amplitude vs Time
-            #
-            title = 'PlotID: {0} Field: {1}'.format(plotnum, field)
-            plotfile = 'selfcal_figures/{0}.png'.format(plotnum)
-            casa.plotms(vis=self.vis, xaxis='time', yaxis='amp',
-                        field=field, ydatacolumn=datacolumn,
-                        iteraxis='spw', coloraxis='baseline',
-                        correlation=corr, avgchannel='1e7',
-                        title=title, plotfile=plotfile,
-                        overwrite=True, showgui=False, exprange='all')
-            plots.append({'field':field,
-                          'xaxis':'time', 'yaxis':'amp',
-                          'avgtime':'', 'avgchannel':'1e7'})
-            plotnum += 1
-            #
-            # Phase vs Time
-            #
-            title = 'PlotID: {0} Field: {1}'.format(plotnum, field)
-            plotfile = 'selfcal_figures/{0}.png'.format(plotnum)
-            casa.plotms(vis=self.vis, xaxis='time', yaxis='phase',
-                        field=field, ydatacolumn=datacolumn,
-                        iteraxis='spw', coloraxis='baseline',
-                        correlation=corr, avgchannel='1e7',
-                        title=title, plotfile=plotfile,
-                        overwrite=True, showgui=False, exprange='all')
-            plots.append({'field':field,
-                          'xaxis':'time', 'yaxis':'phase',
-                          'avgtime':'', 'avgchannel':'1e7'})
-            plotnum += 1
-            #
-            # Amplitude vs Channel
-            #
-            title = 'PlotID: {0} Field: {1}'.format(plotnum, field)
-            plotfile = 'selfcal_figures/{0}.png'.format(plotnum)
-            casa.plotms(vis=self.vis, xaxis='channel', yaxis='amp',
-                        field=field, ydatacolumn=datacolumn,
-                        iteraxis='spw', coloraxis='baseline',
-                        correlation=corr, avgtime='1e7',
-                        title=title, plotfile=plotfile,
-                        overwrite=True, showgui=False, exprange='all')
-            plots.append({'field':field,
-                          'xaxis':'channel', 'yaxis':'amp',
-                          'avgtime':'1e7', 'avgchannel':''})
-            plotnum += 1
-            #
-            # Phase vs Channel
-            #
-            title = 'PlotID: {0} Field: {1}'.format(plotnum, field)
-            plotfile = 'selfcal_figures/{0}.png'.format(plotnum)
-            casa.plotms(vis=self.vis, xaxis='channel', yaxis='phase',
-                        field=field, ydatacolumn=datacolumn,
-                        iteraxis='spw', coloraxis='baseline',
-                        correlation=corr, avgtime='1e7',
-                        title=title, plotfile=plotfile,
-                        overwrite=True, showgui=False, exprange='all')
-            plots.append({'field':field,
-                          'xaxis':'channel', 'yaxis':'phase',
-                          'avgtime':'1e7', 'avgchannel':''})
-            plotnum += 1
-        self.logger.info('Done.')
-        #
-        # Generate PDF to display plots
-        #
-        self.logger.info('Generating PDF...')
-        num_plots = plotnum
-        iplot = 0
-        with open('selfcal_figures.tex', 'w') as fout:
-            fout.write(r'\documentclass{article}'+'\n')
-            fout.write(r'\usepackage{graphicx}'+'\n')
-            fout.write(r'\usepackage[margin=0.1cm]{geometry}'+'\n')
-            fout.write(r'\begin{document}'+'\n')
-            fout.write(r'\begin{figure}'+'\n')
-            fout.write(r'\centering'+'\n')
-            for plotnum in range(num_plots):
-                fnames = glob.glob(
-                    'selfcal_figures/{0}_*.png'.format(plotnum))
-                fnames = natural_sort(fnames)
-                for fname in fnames:
-                    if iplot > 0 and iplot % 6 == 0:
-                        fout.write(r'\end{figure}'+'\n')
-                        fout.write(r'\clearpage'+'\n')
-                        fout.write(r'\begin{figure}'+'\n')
-                        fout.write(r'\centering'+'\n')
-                    elif iplot > 0 and iplot % 2 == 0:
-                        fout.write(r'\end{figure}'+'\n')
-                        fout.write(r'\begin{figure}'+'\n')
-                        fout.write(r'\centering'+'\n')
-                    fout.write(r'\includegraphics[width=0.45\textwidth]'
-                               '{'+fname+'}\n')
-                    iplot += 1
-            fout.write(r'\end{figure}'+'\n')
-            fout.write(r'\end{document}'+'\n')
-        os.system('pdflatex -interaction=batchmode selfcal_figures.tex')
-        self.logger.info('Done.')
 
     def selfcal_phase(self):
         """
@@ -434,7 +280,3 @@ def main(vis, refant, config_file):
     #
     calib.selfcal_phase()
     calib.calibrate()
-    #
-    # Generate diagnostic plots
-    #
-    calib.selfcal_plots()
