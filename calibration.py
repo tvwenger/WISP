@@ -307,15 +307,15 @@ class Calibration:
             self.flux_cals = [field for field in
                               config_flux_cals.splitlines()
                               if field in self.all_fields]
-        self.logger.info('Flux calibrators: %s',
-                         ', '.join(self.flux_cals))
         #
         # Check that flux calibrators are in primary calibrator list
-        # if not, add them
         #
         for flux_cal in self.flux_cals:
             if flux_cal not in self.pri_cals:
-                self.pri_cals.append(flux_cal)
+                raise ValueError('Flux Calibrators must be a '
+                                 'Primary Calibrator')
+        self.logger.info('Flux calibrators: %s',
+                         ', '.join(self.flux_cals))
         #
         # Get polarization calibrators from config
         #
@@ -1110,12 +1110,12 @@ class Calibration:
         Returns: Nothing
         """
         #
-        # Get source polarization estimates
+        # Get source polarization estimates for secondary cals
         #
         smodels = {}
         for field in self.pri_cals+self.sec_cals:
-            # skip if this is a polarization calibrator
-            if field in self.pol_cals:
+            # skip if this is a polarization and/or flux calibrator
+            if field in self.pol_cals+self.flux_cals:
                 continue
             # get fieldid(s)
             casa.msmd.open(self.vis)
@@ -1144,9 +1144,9 @@ class Calibration:
         if os.path.isdir(caltable):
             casa.rmtables(caltable)
         #
-        # First the polarization calibrator
+        # First the polarization and flux calibrators
         #
-        field = ','.join(self.pol_cals)
+        field = ','.join(list(set(self.pol_cals+self.flux_cals)))
         casa.bandpass(vis=self.vis, caltable=caltable, field=field,
                       refant=self.refant,
                       solint='inf', combine='scan', solnorm=True,
@@ -1156,7 +1156,7 @@ class Calibration:
         # Then the other primary calibrators
         #
         for field in self.pri_cals:
-            if field in self.pol_cals:
+            if field in self.pol_cals+self.flux_cals:
                 continue
             casa.bandpass(vis=self.vis, caltable=caltable,
                           field=field, 
@@ -1182,9 +1182,9 @@ class Calibration:
         if os.path.isdir(caltable):
             casa.rmtables(caltable)
         #
-        # First the polarization calibrator
+        # First the polarization and flux calibrators
         #
-        field = ','.join(self.pol_cals)
+        field = ','.join(list(set(self.pol_cals+self.flux_cals)))
         casa.gaincal(vis=self.vis, caltable=caltable, field=field,
                      solint='int', calmode='p', refant=self.refant,
                      gaintype='G', minsnr=2.0, minblperant=1,
@@ -1193,7 +1193,7 @@ class Calibration:
         # Then the others
         #
         for field in self.pri_cals+self.sec_cals:
-            if field in self.pol_cals:
+            if field in self.pol_cals+self.flux_cals:
                 continue
             casa.gaincal(vis=self.vis, caltable=caltable, field=field,
                          solint='int', calmode='p',
@@ -1220,9 +1220,9 @@ class Calibration:
         if os.path.isdir(caltable):
             casa.rmtables(caltable)
         #
-        # First the polarization calibrator
+        # First the polarization and flux calibrators
         #
-        field = ','.join(self.pol_cals)
+        field = ','.join(list(set(self.pol_cals+self.flux_cals)))
         casa.gaincal(vis=self.vis, caltable=caltable, field=field,
                      solint='inf', calmode='p', refant=self.refant,
                      gaintype='G', minsnr=2.0, minblperant=1,
@@ -1231,7 +1231,7 @@ class Calibration:
         # Then the others
         #
         for field in self.pri_cals+self.sec_cals:
-            if field in self.pol_cals:
+            if field in self.pol_cals+self.flux_cals:
                 continue
             casa.gaincal(vis=self.vis, caltable=caltable, field=field,
                          solint='inf', calmode='p',
@@ -1259,9 +1259,9 @@ class Calibration:
         if os.path.isdir(caltable):
             casa.rmtables(caltable)
         #
-        # First the polarization calibrator
+        # First the polarization and flux calibrators
         #
-        field = ','.join(self.pol_cals)
+        field = ','.join(list(set(self.pol_cals+self.flux_cals)))
         casa.gaincal(vis=self.vis, caltable=caltable, field=field,
                      solint='inf', calmode='ap', refant=self.refant,
                      minsnr=2.0, minblperant=1, parang=self.parang,
@@ -1270,7 +1270,7 @@ class Calibration:
         # Now the other calibrators, which we append to the caltable
         #
         for field in self.pri_cals+self.sec_cals:
-            if field in self.pol_cals:
+            if field in self.pol_cals+self.flux_cals:
                 continue
             casa.gaincal(vis=self.vis, caltable=caltable, field=field,
                          solint="inf", calmode="ap",

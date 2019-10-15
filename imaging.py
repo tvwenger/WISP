@@ -86,7 +86,7 @@ class Imaging:
 
     def __init__(self, vis, field, logger, config, outdir='.',
                  uvtaper=False,
-                 spws='', stokes='I', savemodel=False,
+                 spws='', stokes='I', savemodel=None,
                  interactive=False):
         """
         Create a new Imaging object. Get imaging parameters from
@@ -112,10 +112,12 @@ class Imaging:
             if empty, clean all spws
           stokes :: string
             The Stokes parameters we're imaging. e.g. 'I' or 'IQUV'
-          savemodel :: boolean
-            if True, save individual MFS images of each spectral window
-            to the model column of the measurement set for
-            self-calibration. This can only be done with stokes='I'
+          savemodel :: string
+            if not none, save individual MFS images of each spectral
+            window to the model column of the measurement set for
+            self-calibration. This can only be done with stokes='I'.
+            if savemodel == 'light': save the model after lightniter
+            if savemodel == 'clean': save the model after niter
           interactive :: boolean
             if True, interactively clean
 
@@ -132,6 +134,9 @@ class Imaging:
             os.mkdir(self.outdir)
         self.uvtaper = uvtaper
         self.stokes = stokes
+        if savemodel is not None:
+            if savemodel not in ['light','clean']:
+                raise ValueError('Invalid savemodel: {0}'.format(savemode))
         self.savemodel = savemodel
         self.interactive = interactive
         #
@@ -344,7 +349,7 @@ class Imaging:
                         phasecenter=self.cp['phasecenter'],
                         field=self.field, spw=self.cont_spws,
                         specmode='mfs', threshold='0mJy',
-                        niter=self.cp['lightniter'],
+                        niter=self.cp['lightniter']*len(self.stokes),
                         usemask='auto-multithresh',
                         pbmask=self.cp['contpbmask'],
                         sidelobethreshold=self.cp['contsidelobethreshold'],
@@ -396,7 +401,7 @@ class Imaging:
                     phasecenter=self.cp['phasecenter'],
                     field=self.field, spw=self.cont_spws,
                     specmode='mfs', threshold=threshold,
-                    niter=self.cp['maxniter'],
+                    niter=self.cp['maxniter']*len(self.stokes),
                     usemask='auto-multithresh',
                     pbmask=self.cp['contpbmask'],
                     sidelobethreshold=self.cp['contsidelobethreshold'],
@@ -571,12 +576,18 @@ class Imaging:
                 if self.uvtaper:
                     imagename = imagename + '.uvtaper'
                 imagename = os.path.join(self.outdir, imagename)
+                #
+                # Save model if necessary
+                #
+                savemodel = 'none'
+                if self.savemodel == 'light':
+                    savemodel = 'modelcolumn'
                 self.logger.info('Lightly cleaning spw {0} (MFS)...'.format(spw))
                 casa.tclean(vis=self.vis, imagename=imagename,
                             phasecenter=self.cp['phasecenter'],
                             field=self.field, spw=spw, specmode='mfs',
                             threshold='0mJy',
-                            niter=self.cp['lightniter'],
+                            niter=self.cp['lightniter']*len(self.stokes),
                             usemask='auto-multithresh',
                             pbmask=self.cp[spwtype+'pbmask'],
                             sidelobethreshold=self.cp[spwtype+'sidelobethreshold'],
@@ -596,7 +607,8 @@ class Imaging:
                             weighting=self.cp['weighting'],
                             robust=self.cp['robust'],
                             uvtaper=self.cp['outertaper'],
-                            stokes=self.stokes, pbcor=False)
+                            stokes=self.stokes, savemodel=savemodel,
+                            pbcor=False)
                 self.logger.info('Done.')
                 #
                 # Get RMS of residuals
@@ -614,23 +626,23 @@ class Imaging:
             else:
                 threshold = '0.0mJy'
             #
-            # Save model if necessary
-            #
-            savemodel = 'none'
-            if self.savemodel:
-                savemodel = 'modelcolumn'
-            #
             # Clean to threshold
             #
             imagename = '{0}.spw{1}.{2}.mfs.clean'.format(self.field, spw, self.stokes)
             if self.uvtaper:
                 imagename = imagename + '.uvtaper'
             imagename = os.path.join(self.outdir, imagename)
+            #
+            # Save model if necessary
+            #
+            savemodel = 'none'
+            if self.savemodel == 'clean':
+                savemodel = 'modelcolumn'
             self.logger.info('Cleaning spw {0} (MFS) to threshold: {1}...'.format(spw, threshold))
             casa.tclean(vis=self.vis, imagename=imagename, field=self.field,
                         phasecenter=self.cp['phasecenter'],
                         spw=spw, specmode='mfs', threshold=threshold,
-                        niter=self.cp['maxniter'],
+                        niter=self.cp['maxniter']*len(self.stokes),
                         usemask='auto-multithresh',
                         pbmask=self.cp[spwtype+'pbmask'],
                         sidelobethreshold=self.cp[spwtype+'sidelobethreshold'],
@@ -913,6 +925,24 @@ class Imaging:
         #
         for spw, restfreq, nchan in zip(spws.split(','), restfreqs, nchans):
             #
+            # Get niters
+            #
+            if nchan is None:
+                # get number of channels from dirty image
+                imagename = '{0}.spw{1}.{2}.channel.dirty'.format(self.field, spw, self.stokes)
+                if self.uvtaper:
+                    imagename = imagename + '.uvtaper'
+                imagename = os.path.join(self.outdir, imagename)
+                imagename = imagename + '.image.fits'
+                if not os.path.exists(imagename):
+                    raise ValueError("Must create dirty channel cube first: {0}".format(imagename))
+                dirty_hdr = fits.getheader(imagename)
+                lightniter = self.cp['lightniter']*dirty_hdr['NAXIS3']*len(self.stokes)
+                niter = self.cp['maxniter']*dirty_hdr['NAXIS3']*len(self.stokes)
+            else:
+                lightniter = self.cp['lightniter']*nchan*len(self.stokes)
+                niter = self.cp['maxniter']*nchan*len(self.stokes)
+            #
             # If not interactive, Lightly clean spw
             #
             if not self.interactive:
@@ -933,7 +963,7 @@ class Imaging:
                             phasecenter=self.cp['phasecenter'],
                             field=self.field, spw=spw,
                             specmode='cube', threshold='0mJy',
-                            niter=self.cp['lightniter']*nchan,
+                            niter=lightniter,
                             mask=mask, deconvolver='multiscale',
                             scales=self.cp['scales'],
                             gain=self.cp['gain'],
@@ -983,7 +1013,7 @@ class Imaging:
                         phasecenter=self.cp['phasecenter'],
                         field=self.field, spw=spw, specmode='cube',
                         threshold=threshold,
-                        niter=self.cp['maxniter']*nchan,
+                        niter=niter,
                         mask=mask, deconvolver='multiscale',
                         scales=self.cp['scales'],
                         gain=self.cp['gain'],
@@ -1435,7 +1465,7 @@ class Imaging:
         self.logger.info('Done.')
 
 def main(vis, field, config_file, outdir='.', stokes='I', spws='',
-         uvtaper=False, interactive=False, savemodel=False, auto=''):
+         uvtaper=False, interactive=False, savemodel=None, auto=''):
     """
     Generate and clean images
 
@@ -1458,10 +1488,12 @@ def main(vis, field, config_file, outdir='.', stokes='I', spws='',
         if True, apply UV tapering
       interactive :: boolean
         if True, interactively clean
-      savemodel :: boolean
-        if True, save individual MFS images of each spectral window
-        to the model column of the measurement set for
-        self-calibration. This can only be done with stokes='I'
+      savemodel :: string
+        if not none, save individual MFS images of each spectral
+        window to the model column of the measurement set for
+        self-calibration. This can only be done with stokes='I'.
+        if savemodel == 'light': save the model after lightniter
+        if savemodel == 'clean': save the model after niter
       auto :: string
         if not an empty string, it is a comma separated
         list of menu items to perform, i.e. auto='0,1,4,5,6'
@@ -1481,7 +1513,7 @@ def main(vis, field, config_file, outdir='.', stokes='I', spws='',
     if not os.path.exists(config_file):
         logger.critical('Configuration file not found')
         raise ValueError('Configuration file not found!')
-    if savemodel and stokes != 'I':
+    if savemodel is not None and stokes != 'I':
         logger.critical('Can only save visibility model with Stokes I')
         raise ValueError('Can only save visibility model with Stokes I')
     #
