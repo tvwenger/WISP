@@ -46,6 +46,12 @@ from astropy.coordinates import SkyCoord
 
 import __main__ as casa
 
+# imported by makepb
+import shutil
+from casac import *
+from tasks import imregrid
+from numpy import fabs
+
 __version__ = "2.0"
 
 # load logging configuration file
@@ -56,6 +62,69 @@ try:
     input = raw_input
 except NameError:
     pass
+
+def makePB(vis='',field='',spw='',timerange='',uvrange='',antenna='',
+           observation='',intent='',scan='', imtemplate='',outimage='',
+           pblimit=0.2,stokes='I'):
+    """
+    (Modified from recipes.makepb, added multiple stokes capability)
+    
+    Make a PB image using the imager tool, onto a specified image coordinate system 
+
+    This function can be used along with tclean to make .pb images for gridders that
+    do not already do it (i.e. other than mosaic, awproject)
+
+    This script takes an image to use as a template coordinate system, 
+    attempts to set up an identical coordinate system with the old imager tool, 
+    makes a PB for the telescope listed in the MS observation subtable, and 
+    regrids it (just in case) to the target coordinate system). This can be used for
+    single fields and mosaics.
+
+    """
+    tb = casac.table()
+    im = casac.imager()
+    ia = casac.image()
+    me = casac.measures()
+    qa = casac.quanta()
+    tb.open(vis+'/OBSERVATION')
+    tel = tb.getcol('TELESCOPE_NAME')[0]
+    tb.close()
+    tb.open(vis+'/SPECTRAL_WINDOW')
+    mfreqref = tb.getcol('MEAS_FREQ_REF')[0]
+    tb.close()
+    if mfreqref == 64:
+       print('MAKEPB : This function is using old imager tool, Undefined frame may not be handled properly.')
+    ia.open(imtemplate)
+    csysa = ia.coordsys()
+    csys = csysa.torecord()
+    shp = ia.shape()
+    ia.close()
+    dirs = csys['direction0']
+    phasecenter = me.direction(dirs['system'], qa.quantity(dirs['crval'][0],dirs['units'][0]) , qa.quantity(dirs['crval'][1],dirs['units'][1]) )
+    cellx=qa.quantity(fabs(dirs['cdelt'][0]),dirs['units'][0])
+    celly=qa.quantity(fabs(dirs['cdelt'][1]),dirs['units'][1])
+    nchan=shp[3]
+    start=qa.quantity( csysa.referencevalue()['numeric'][3], csysa.units()[3] )  ## assumes refpix is zero
+    mestart = me.frequency('LSRK',start)
+    step=qa.quantity( csysa.increment()['numeric'][3], csysa.units()[3] )
+    smode='mfs'
+    if nchan>1:
+        smode='frequency'
+    im.open(vis)
+    im.selectvis(field=field,spw=spw,time=timerange,intent=intent,scan=scan,uvrange=uvrange,baseline=antenna,observation=observation)
+    im.defineimage(nx=shp[0],ny=shp[0],phasecenter=phasecenter,cellx=qa.tos(cellx),celly=qa.tos(celly),stokes=stokes,nchan=nchan,start=mestart,step=step,mode=smode)
+    im.setvp(dovp=True,telescope=tel)
+    im.makeimage(type='pb',image=outimage+'.tmp')
+    im.close()
+    if mfreqref == 64: # skip this step if the frame is 'Undefined' 
+        shutil.copytree(outimage+'.tmp', outimage)
+    else:
+        print('MAKEPB : Regrid to desired coordinate system')
+        imregrid(imagename=outimage+'.tmp', template=imtemplate,output=outimage,overwrite=True,asvelocity=False)
+    shutil.rmtree(outimage+'.tmp')
+    ia.open(outimage)
+    ia.calcmask("'"+outimage+"'>"+str(pblimit))
+    ia.close()
 
 def natural_sort(mylist):
     """
@@ -86,7 +155,7 @@ class Imaging:
 
     def __init__(self, vis, field, logger, config, outdir='.',
                  uvtaper=False,
-                 spws='', stokes='I', savemodel=None,
+                 spws='', uvrange='', stokes='I', savemodel=None,
                  interactive=False):
         """
         Create a new Imaging object. Get imaging parameters from
@@ -110,6 +179,8 @@ class Imaging:
           spws :: string
             comma-separated list of spws to clean
             if empty, clean all spws
+          uvrange :: string
+            Selection on UV-range
           stokes :: string
             The Stokes parameters we're imaging. e.g. 'I' or 'IQUV'
           savemodel :: string
@@ -133,6 +204,7 @@ class Imaging:
         if not os.path.isdir(self.outdir):
             os.mkdir(self.outdir)
         self.uvtaper = uvtaper
+        self.uvrange = uvrange
         self.stokes = stokes
         if savemodel is not None:
             if savemodel not in ['light','clean']:
@@ -180,6 +252,7 @@ class Imaging:
         self.cp['veltype'] = config.get('Clean', 'veltype')
         self.cp['interpolation'] = config.get('Clean', 'interpolation')
         self.cp['contoutframe'] = config.get('Clean', 'contoutframe')
+        self.cp['contwidth'] = config.getint('Clean', 'contwidth')
         if self.uvtaper:
             heading = 'Mask Taper'
         else:
@@ -264,12 +337,12 @@ class Imaging:
         #
         # Dirty image continuum
         #
-        imagename = '{0}.cont.{1}.mfs.dirty'.format(self.field, self.stokes)
+        imagename = '{0}.cont.{1}.mfs'.format(self.field, self.stokes)
         if self.uvtaper:
             imagename = imagename + '.uvtaper'
-        imagename = os.path.join(self.outdir, imagename)
         self.logger.info('Generating dirty continuum image (MFS)...')
-        casa.tclean(vis=self.vis, imagename=imagename,
+        casa.tclean(vis=self.vis,
+                    imagename=os.path.join(self.outdir, imagename),
                     phasecenter=self.cp['phasecenter'],
                     field=self.field, spw=self.cont_spws,
                     specmode='mfs', threshold='0mJy', niter=0,
@@ -277,27 +350,30 @@ class Imaging:
                     scales=self.cp['scales'], gain=self.cp['gain'],
                     cyclefactor=self.cp['cyclefactor'],
                     imsize=self.cp['imsize'], pblimit=-1.0,
-                    cell=self.cp['cell'],
+                    cell=self.cp['cell'], 
                     weighting=self.cp['weighting'],
                     robust=self.cp['robust'],
-                    uvtaper=self.cp['outertaper'], stokes=self.stokes,
-                    pbcor=False)
+                    uvtaper=self.cp['outertaper'],
+                    uvrange=self.uvrange,
+                    stokes=self.stokes, pbcor=False)
         self.logger.info('Done.')
         #
-        # Primary beam correction using PB of center channel
+        # Primary beam correction
         #
         self.logger.info('Performing primary beam correction...')
-        imagename = '{0}.cont.{1}.mfs.dirty'.format(self.field, self.stokes)
-        if self.uvtaper:
-            imagename = imagename + '.uvtaper'
         # Due to widebandpbcor limitiations, need to go into outdir
         os.chdir(self.outdir)
-        spwlist = [int(spw) for spw in self.cont_spws.split(',')]
-        weightlist = [1.0 for spw in spwlist]
-        chanlist = [int(self.cp['contpbchan']) for _ in spwlist]
+        spwlist = [int(spw)
+                   for chan in self.cp['contpbchan'].split(',')
+                   for spw in self.cont_spws.split(',')]
+        chanlist = [int(chan)
+                    for chan in self.cp['contpbchan'].split(',')
+                    for spw in self.cont_spws.split(',')]
+        weightlist = [1.0 for _ in spwlist]        
         casa.widebandpbcor(vis=os.path.join('..', self.vis),
                            imagename=imagename,
-                           nterms=self.cp['nterms'], pbmin=self.cp['pblimit'],
+                           nterms=self.cp['nterms'],
+                           pbmin=self.cp['pblimit'],
                            threshold='0.1mJy', spwlist=spwlist,
                            weightlist=weightlist, chanlist=chanlist)
         self.logger.info('Done.')
@@ -311,19 +387,19 @@ class Imaging:
                         overwrite=True, history=False)
         imagename = os.path.join(self.outdir, imagename)
         casa.exportfits(imagename='{0}.image.tt0'.format(imagename),
-                        fitsimage='{0}.image.fits'.format(imagename),
+                        fitsimage='{0}.dirty.image.fits'.format(imagename),
                         overwrite=True, history=False)
         casa.exportfits(imagename='{0}.residual.tt0'.format(imagename),
-                        fitsimage='{0}.residual.fits'.format(imagename),
+                        fitsimage='{0}.dirty.residual.fits'.format(imagename),
                         overwrite=True, history=False)
         casa.exportfits(imagename='{0}.pbcor.image.tt0'.format(imagename),
-                        fitsimage='{0}.pbcor.image.fits'.format(imagename),
+                        fitsimage='{0}.dirty.pbcor.image.fits'.format(imagename),
                         overwrite=True, history=False)
         casa.exportfits(imagename='{0}.pbcor.image.alpha'.format(imagename),
-                        fitsimage='{0}.pbcor.image.alpha.fits'.format(imagename),
+                        fitsimage='{0}.dirty.pbcor.image.alpha.fits'.format(imagename),
                         overwrite=True, history=False)
         casa.exportfits(imagename='{0}.pbcor.image.alpha.error'.format(imagename),
-                        fitsimage='{0}.pbcor.image.alpha.error.fits'.format(imagename),
+                        fitsimage='{0}.dirty.pbcor.image.alpha.error.fits'.format(imagename),
                         overwrite=True, history=False)
         self.logger.info('Done.')
 
@@ -339,13 +415,13 @@ class Imaging:
         # If not cleaning interactively, lightly clean to get RMS
         # threshold
         #
+        imagename = '{0}.cont.{1}.mfs'.format(self.field, self.stokes)
+        if self.uvtaper:
+            imagename = imagename + '.uvtaper'
         if not self.interactive:
-            imagename = '{0}.cont.{1}.mfs.lightclean'.format(self.field, self.stokes)
-            if self.uvtaper:
-                imagename = imagename + '.uvtaper'
-            imagename = os.path.join(self.outdir, imagename)
             self.logger.info('Lightly cleaning continuum image (MFS)...')
-            casa.tclean(vis=self.vis, imagename=imagename,
+            casa.tclean(vis=self.vis,
+                        imagename=os.path.join(self.outdir, imagename),
                         phasecenter=self.cp['phasecenter'],
                         field=self.field, spw=self.cont_spws,
                         specmode='mfs', threshold='0mJy',
@@ -369,21 +445,21 @@ class Imaging:
                         weighting=self.cp['weighting'],
                         robust=self.cp['robust'],
                         uvtaper=self.cp['outertaper'],
-                        stokes=self.stokes, pbcor=False)
+                        uvrange=self.uvrange,
+                        stokes=self.stokes, pbcor=False,
+                        restart=True, calcres=False, calcpsf=False)
             self.logger.info('Done.')
             #
             # Get RMS of residuals outside of clean mask
             #
-            dat = casa.imstat(imagename='{0}.residual.tt0'.format(imagename),
-                              axes=[0, 1], mask="'{0}.mask' == 0".format(imagename))
+            dat = casa.imstat(
+                imagename='{0}.residual.tt0'.format(os.path.join(self.outdir, imagename)),
+                axes=[0, 1],
+                mask="'{0}.mask' == 0".format(os.path.join(self.outdir, imagename)))
             self.logger.info('Max un-masked RMS: {0:.2f} mJy/beam'.format(1000.*np.max(dat['rms'])))
-            self.logger.info('Mean un-masked RMS: {0:.2f} mJy/beam'.format(1000.*np.mean(dat['rms'])))
-            self.logger.info('Median un-masked RMS: {0:.2f} mJy/beam'.format(1000.*np.median(dat['rms'])))
             self.logger.info('Max un-masked MAD*1.4826: {0:.2f} mJy/beam'.format(1000.*1.4826*np.max(dat['medabsdevmed'])))
-            self.logger.info('Mean un-masked MAD*1.4826: {0:.2f} mJy/beam'.format(1000.*1.4826*np.mean(dat['medabsdevmed'])))
-            self.logger.info('Median un-masked MAD*1.4826: {0:.2f} mJy/beam'.format(1000.*1.4826*np.median(dat['medabsdevmed'])))
-            self.logger.info('Using median MADS*1.4826 times {0} (user-defined) as threshold'.format(self.cp['nrms']))
-            threshold = '{0:.2f}mJy'.format(self.cp['nrms']*1000.*1.4826*np.median(dat['medabsdevmed']))
+            self.logger.info('Using max MAD*1.4826 times {0} (user-defined) as threshold'.format(self.cp['nrms']))
+            threshold = '{0:.2f}mJy'.format(self.cp['nrms']*1000.*1.4826*np.max(dat['medabsdevmed']))
         else:
             #
             # No threshold for interactive clean
@@ -392,12 +468,9 @@ class Imaging:
         #
         # Clean to threshold
         #
-        imagename = '{0}.cont.{1}.mfs.clean'.format(self.field, self.stokes)
-        if self.uvtaper:
-            imagename = imagename + '.uvtaper'
-        imagename = os.path.join(self.outdir, imagename)
         self.logger.info('Cleaning continuum image (MFS) to threshold: {0}...'.format(threshold))
-        casa.tclean(vis=self.vis, imagename=imagename,
+        casa.tclean(vis=self.vis,
+                    imagename=os.path.join(self.outdir, imagename),
                     phasecenter=self.cp['phasecenter'],
                     field=self.field, spw=self.cont_spws,
                     specmode='mfs', threshold=threshold,
@@ -419,21 +492,25 @@ class Imaging:
                     cell=self.cp['cell'],
                     weighting=self.cp['weighting'],
                     robust=self.cp['robust'],
-                    uvtaper=self.cp['outertaper'], pbcor=False,
-                    stokes=self.stokes, interactive=self.interactive)
+                    uvtaper=self.cp['outertaper'],
+                    uvrange=self.uvrange,
+                    pbcor=False,
+                    stokes=self.stokes, interactive=self.interactive,
+                    restart=True, calcres=False, calcpsf=False)
         self.logger.info('Done.')
         #
         # Primary beam correction using PB of center channel
         #
         self.logger.info('Performing primary beam correction...')
-        imagename = '{0}.cont.{1}.mfs.clean'.format(self.field, self.stokes)
-        if self.uvtaper:
-            imagename = imagename + '.uvtaper'
         # Due to widebandpbcor limitiations, need to go into outdir
         os.chdir(self.outdir)
-        spwlist = [int(spw) for spw in self.cont_spws.split(',')]
-        weightlist = [1.0 for spw in spwlist]
-        chanlist = [int(self.cp['contpbchan']) for _ in spwlist]
+        spwlist = [int(spw)
+                   for chan in self.cp['contpbchan'].split(',')
+                   for spw in self.cont_spws.split(',')]
+        chanlist = [int(chan)
+                    for chan in self.cp['contpbchan'].split(',')
+                    for spw in self.cont_spws.split(',')]
+        weightlist = [1.0 for _ in spwlist]        
         casa.widebandpbcor(vis=os.path.join('..', self.vis),
                            imagename=imagename,
                            nterms=self.cp['nterms'],
@@ -446,27 +523,24 @@ class Imaging:
         # Export to fits
         #
         self.logger.info('Exporting fits file...')
-        casa.exportfits(imagename='{0}/{1}.pbcor.workdirectory/{1}.pb.tt0'.format(self.outdir, imagename),
-                        fitsimage='{0}/{1}.pb.fits'.format(self.outdir,imagename),
-                        overwrite=True, history=False)
         imagename = os.path.join(self.outdir, imagename)
         casa.exportfits(imagename='{0}.image.tt0'.format(imagename),
-                        fitsimage='{0}.image.fits'.format(imagename),
+                        fitsimage='{0}.clean.image.fits'.format(imagename),
                         overwrite=True, history=False)
         casa.exportfits(imagename='{0}.mask'.format(imagename),
-                        fitsimage='{0}.mask.fits'.format(imagename),
+                        fitsimage='{0}.clean.mask.fits'.format(imagename),
                         overwrite=True, history=False)
         casa.exportfits(imagename='{0}.residual.tt0'.format(imagename),
-                        fitsimage='{0}.residual.fits'.format(imagename),
+                        fitsimage='{0}.clean.residual.fits'.format(imagename),
                         overwrite=True, history=False)
         casa.exportfits(imagename='{0}.pbcor.image.tt0'.format(imagename),
-                        fitsimage='{0}.pbcor.image.fits'.format(imagename),
+                        fitsimage='{0}.clean.pbcor.image.fits'.format(imagename),
                         overwrite=True, history=False)
         casa.exportfits(imagename='{0}.pbcor.image.alpha'.format(imagename),
-                        fitsimage='{0}.pbcor.image.alpha.fits'.format(imagename),
+                        fitsimage='{0}.clean.pbcor.image.alpha.fits'.format(imagename),
                         overwrite=True, history=False)
         casa.exportfits(imagename='{0}.pbcor.image.alpha.error'.format(imagename),
-                        fitsimage='{0}.pbcor.image.alpha.error.fits'.format(imagename),
+                        fitsimage='{0}.clean.pbcor.image.alpha.error.fits'.format(imagename),
                         overwrite=True, history=False)
         self.logger.info('Done.')
 
@@ -484,7 +558,7 @@ class Imaging:
             #
             # Dirty image
             #
-            imagename = '{0}.spw{1}.{2}.mfs.dirty'.format(self.field, spw, self.stokes)
+            imagename = '{0}.spw{1}.{2}.mfs'.format(self.field, spw, self.stokes)
             if self.uvtaper:
                 imagename = imagename + '.uvtaper'
             imagename = os.path.join(self.outdir, imagename)
@@ -502,38 +576,25 @@ class Imaging:
                         weighting=self.cp['weighting'],
                         robust=self.cp['robust'],
                         uvtaper=self.cp['outertaper'],
+                        uvrange=self.uvrange,
                         stokes=self.stokes, pbcor=False)
             self.logger.info('Done.')
             #
             # Generate primary beam image
             #
-            pbimagename = '{0}.spw{1}.{2}.mfs.pb'.format(self.field, spw, self.stokes)
-            if self.uvtaper:
-                pbimagename = pbimagename + '.uvtaper'
-            pbimagename = os.path.join(self.outdir, pbimagename)
             self.logger.info('Generating primary beam image of spw {0} (MFS)...'.format(spw))
-            casa.tclean(vis=self.vis, imagename=pbimagename,
-                        phasecenter=self.cp['phasecenter'],
-                        field=self.field, spw=spw, specmode='mfs',
-                        threshold='0mJy', niter=0,
-                        deconvolver='multiscale',
-                        scales=self.cp['scales'],
-                        gain=self.cp['gain'],
-                        cyclefactor=self.cp['cyclefactor'],
-                        imsize=self.cp['imsize'],
-                        pblimit=self.cp['pblimit'],
-                        cell=self.cp['cell'],
-                        weighting=self.cp['weighting'],
-                        robust=self.cp['robust'],
-                        uvtaper=self.cp['outertaper'],
-                        stokes=self.stokes, pbcor=False)
+            makePB(vis=self.vis, field=self.field,
+                   spw=spw, uvrange=self.uvrange, stokes=self.stokes,
+                   imtemplate='{0}.image'.format(imagename),
+                   outimage='{0}.pb.image'.format(imagename),
+                   pblimit=self.cp['pblimit'])
             self.logger.info('Done.')
             #
             # Primary beam correction
             #
             self.logger.info('Performing primary beam correction...')
             casa.impbcor(imagename='{0}.image'.format(imagename),
-                         pbimage='{0}.pb'.format(pbimagename),
+                         pbimage='{0}.pb.image'.format(imagename),
                          outfile='{0}.pbcor.image'.format(imagename),
                          overwrite=True)
             self.logger.info('Done.')
@@ -541,17 +602,17 @@ class Imaging:
             # Export to fits
             #
             self.logger.info('Exporting fits file...')
-            casa.exportfits(imagename='{0}.pb'.format(pbimagename),
-                            fitsimage='{0}.fits'.format(pbimagename),
+            casa.exportfits(imagename='{0}.pb.image'.format(imagename),
+                            fitsimage='{0}.pb.fits'.format(imagename),
                             overwrite=True, history=False)
             casa.exportfits(imagename='{0}.image'.format(imagename),
-                            fitsimage='{0}.image.fits'.format(imagename),
+                            fitsimage='{0}.dirty.image.fits'.format(imagename),
                             overwrite=True, history=False)
             casa.exportfits(imagename='{0}.residual'.format(imagename),
-                            fitsimage='{0}.residual.fits'.format(imagename),
+                            fitsimage='{0}.dirty.residual.fits'.format(imagename),
                             overwrite=True, history=False)
             casa.exportfits(imagename='{0}.pbcor.image'.format(imagename),
-                            fitsimage='{0}.pbcor.image.fits'.format(imagename),
+                            fitsimage='{0}.dirty.pbcor.image.fits'.format(imagename),
                             overwrite=True, history=False)
             self.logger.info('Done.')
 
@@ -571,11 +632,11 @@ class Imaging:
             #
             # If not interactive, Lightly clean to get threshold
             #
+            imagename = '{0}.spw{1}.{2}.mfs'.format(self.field, spw, self.stokes)
+            if self.uvtaper:
+                imagename = imagename + '.uvtaper'
+            imagename = os.path.join(self.outdir, imagename)
             if not self.interactive:
-                imagename = '{0}.spw{1}.{2}.mfs.lightclean'.format(self.field, spw, self.stokes)
-                if self.uvtaper:
-                    imagename = imagename + '.uvtaper'
-                imagename = os.path.join(self.outdir, imagename)
                 #
                 # Save model if necessary
                 #
@@ -607,8 +668,10 @@ class Imaging:
                             weighting=self.cp['weighting'],
                             robust=self.cp['robust'],
                             uvtaper=self.cp['outertaper'],
+                            uvrange=self.uvrange,
                             stokes=self.stokes, savemodel=savemodel,
-                            pbcor=False)
+                            pbcor=False,
+                            restart=True, calcres=False, calcpsf=False)
                 self.logger.info('Done.')
                 #
                 # Get RMS of residuals
@@ -616,30 +679,21 @@ class Imaging:
                 dat = casa.imstat(imagename='{0}.residual'.format(imagename),
                                   axes=[0, 1], mask="'{0}.mask' == 0".format(imagename))
                 self.logger.info('Max un-masked RMS: {0:.2f} mJy/beam'.format(1000.*np.max(dat['rms'])))
-                self.logger.info('Mean un-masked RMS: {0:.2f} mJy/beam'.format(1000.*np.mean(dat['rms'])))
-                self.logger.info('Median un-masked RMS: {0:.2f} mJy/beam'.format(1000.*np.median(dat['rms'])))
                 self.logger.info('Max un-masked MAD*1.4826: {0:.2f} mJy/beam'.format(1000.*1.4826*np.max(dat['medabsdevmed'])))
-                self.logger.info('Mean un-masked MAD*1.4826: {0:.2f} mJy/beam'.format(1000.*1.4826*np.mean(dat['medabsdevmed'])))
-                self.logger.info('Median un-masked MAD*1.4826: {0:.2f} mJy/beam'.format(1000.*1.4826*np.median(dat['medabsdevmed'])))
-                self.logger.info('Using median MADS*1.4826 times {0} (user-defined) as threshold'.format(self.cp['nrms']))
-                threshold = '{0:.2f}mJy'.format(self.cp['nrms']*1000.*1.4826*np.median(dat['medabsdevmed']))
+                self.logger.info('Using max MAD*1.4826 times {0} (user-defined) as threshold'.format(self.cp['nrms']))
+                threshold = '{0:.2f}mJy'.format(self.cp['nrms']*1000.*1.4826*np.max(dat['medabsdevmed']))
             else:
                 threshold = '0.0mJy'
             #
             # Clean to threshold
-            #
-            imagename = '{0}.spw{1}.{2}.mfs.clean'.format(self.field, spw, self.stokes)
-            if self.uvtaper:
-                imagename = imagename + '.uvtaper'
-            imagename = os.path.join(self.outdir, imagename)
-            #
             # Save model if necessary
             #
             savemodel = 'none'
             if self.savemodel == 'clean':
                 savemodel = 'modelcolumn'
             self.logger.info('Cleaning spw {0} (MFS) to threshold: {1}...'.format(spw, threshold))
-            casa.tclean(vis=self.vis, imagename=imagename, field=self.field,
+            casa.tclean(vis=self.vis, imagename=imagename,
+                        field=self.field,
                         phasecenter=self.cp['phasecenter'],
                         spw=spw, specmode='mfs', threshold=threshold,
                         niter=self.cp['maxniter']*len(self.stokes),
@@ -661,20 +715,18 @@ class Imaging:
                         cell=self.cp['cell'],
                         weighting=self.cp['weighting'],
                         robust=self.cp['robust'],
-                        uvtaper=self.cp['outertaper'], pbcor=False,
+                        uvtaper=self.cp['outertaper'],
+                        uvrange=self.uvrange, pbcor=False,
                         stokes=self.stokes, savemodel=savemodel,
-                        interactive=self.interactive)
+                        interactive=self.interactive,
+                        restart=True, calcres=False, calcpsf=False)
             self.logger.info('Done.')
             #
             # Primary beam correction
             #
-            pbimagename = '{0}.spw{1}.{2}.mfs.pb'.format(self.field, spw, self.stokes)
-            if self.uvtaper:
-                pbimagename = pbimagename + '.uvtaper'
-            pbimagename = os.path.join(self.outdir, pbimagename)
             self.logger.info('Performing primary beam correction...')
             casa.impbcor(imagename='{0}.image'.format(imagename),
-                         pbimage='{0}.pb'.format(pbimagename),
+                         pbimage='{0}.pb.image'.format(imagename),
                          outfile='{0}.pbcor.image'.format(imagename),
                          overwrite=True)
             self.logger.info('Done.')
@@ -682,20 +734,17 @@ class Imaging:
             # Export to fits
             #
             self.logger.info('Exporting fits file...')
-            casa.exportfits(imagename='{0}.pb'.format(pbimagename),
-                            fitsimage='{0}.fits'.format(pbimagename),
-                            overwrite=True, history=False)
             casa.exportfits(imagename='{0}.image'.format(imagename),
-                            fitsimage='{0}.image.fits'.format(imagename),
+                            fitsimage='{0}.clean.image.fits'.format(imagename),
                             overwrite=True, history=False)
             casa.exportfits(imagename='{0}.mask'.format(imagename),
-                            fitsimage='{0}.mask.fits'.format(imagename),
+                            fitsimage='{0}.clean.mask.fits'.format(imagename),
                             overwrite=True, history=False)
             casa.exportfits(imagename='{0}.residual'.format(imagename),
-                            fitsimage='{0}.residual.fits'.format(imagename),
+                            fitsimage='{0}.clean.residual.fits'.format(imagename),
                             overwrite=True, history=False)
             casa.exportfits(imagename='{0}.pbcor.image'.format(imagename),
-                            fitsimage='{0}.pbcor.image.fits'.format(imagename),
+                            fitsimage='{0}.clean.pbcor.image.fits'.format(imagename),
                             overwrite=True, history=False)
             self.logger.info('Done.')
 
@@ -717,7 +766,7 @@ class Imaging:
         if spwtype == 'cont':
             restfreqs = [None for spw in spws.split(',')]
             start = None
-            width = None
+            width = self.cp['contwidth']
             nchans = [None for spw in spws.split(',')]
             outframe = self.cp['contoutframe']
             veltype = None
@@ -774,7 +823,7 @@ class Imaging:
             #
             # dirty image spw
             #
-            imagename = '{0}.spw{1}.{2}.channel.dirty'.format(self.field, spw, self.stokes)
+            imagename = '{0}.spw{1}.{2}.channel'.format(self.field, spw, self.stokes)
             if self.uvtaper:
                 imagename = imagename + '.uvtaper'
             imagename = os.path.join(self.outdir, imagename)
@@ -795,41 +844,25 @@ class Imaging:
                         outframe=outframe, veltype=veltype,
                         interpolation=interpolation,
                         uvtaper=self.cp['outertaper'],
+                        uvrange=self.uvrange,
                         stokes=self.stokes, pbcor=False)
             self.logger.info('Done.')
             #
             # Generate primary beam image
             #
-            pbimagename = '{0}.spw{1}.{2}.channel.pb'.format(self.field, spw, self.stokes)
-            if self.uvtaper:
-                pbimagename = pbimagename + '.uvtaper'
-            pbimagename = os.path.join(self.outdir, pbimagename)
-            self.logger.info('Generating primary beam image of spw {0} (MFS)...'.format(spw))
-            casa.tclean(vis=self.vis, imagename=pbimagename,
-                        phasecenter=self.cp['phasecenter'],
-                        field=self.field, spw=spw, specmode='cube',
-                        threshold='0mJy', niter=0,
-                        deconvolver='multiscale',
-                        scales=self.cp['scales'],
-                        gain=self.cp['gain'],
-                        cyclefactor=self.cp['cyclefactor'],
-                        imsize=self.cp['imsize'],
-                        pblimit=self.cp['pblimit'],
-                        cell=self.cp['cell'],
-                        weighting=self.cp['weighting'],
-                        robust=self.cp['robust'], restfreq=restfreq,
-                        start=start, width=width, nchan=nchan,
-                        outframe=outframe, veltype=veltype,
-                        interpolation=interpolation,
-                        uvtaper=self.cp['outertaper'],
-                        stokes=self.stokes, pbcor=False)
+            self.logger.info('Generating primary beam image of spw {0} (channel)...'.format(spw))
+            makePB(vis=self.vis, field=self.field,
+                   spw=spw, uvrange=self.uvrange, stokes=self.stokes,
+                   imtemplate='{0}.image'.format(imagename),
+                   outimage='{0}.pb.image'.format(imagename),
+                   pblimit=self.cp['pblimit'])
             self.logger.info('Done.')
             #
             # Primary beam correction
             #
             self.logger.info('Performing primary beam correction...')
             casa.impbcor(imagename='{0}.image'.format(imagename),
-                         pbimage='{0}.pb'.format(pbimagename),
+                         pbimage='{0}.pb.image'.format(imagename),
                          outfile='{0}.pbcor.image'.format(imagename),
                          overwrite=True)
             self.logger.info('Done.')
@@ -837,17 +870,22 @@ class Imaging:
             # Export to fits
             #
             self.logger.info('Exporting fits file...')
+            velocity = spwtype == 'line'
+            casa.exportfits(imagename='{0}.pb.image'.format(imagename),
+                            fitsimage='{0}.pb.fits'.format(imagename),
+                            velocity=velocity, overwrite=True,
+                            history=False)
             casa.exportfits(imagename='{0}.image'.format(imagename),
-                            fitsimage='{0}.image.fits'.format(imagename),
-                            velocity=True, overwrite=True,
+                            fitsimage='{0}.dirty.image.fits'.format(imagename),
+                            velocity=velocity, overwrite=True,
                             history=False)
             casa.exportfits(imagename='{0}.residual'.format(imagename),
-                            fitsimage='{0}.residual.fits'.format(imagename),
-                            velocity=True, overwrite=True,
+                            fitsimage='{0}.dirty.residual.fits'.format(imagename),
+                            velocity=velocity, overwrite=True,
                             history=False)
             casa.exportfits(imagename='{0}.pbcor.image'.format(imagename),
-                            fitsimage='{0}.pbcor.image.fits'.format(imagename),
-                            velocity=True, overwrite=True,
+                            fitsimage='{0}.dirty.pbcor.image.fits'.format(imagename),
+                            velocity=velocity, overwrite=True,
                             history=False)
             self.logger.info('Done.')
 
@@ -870,7 +908,7 @@ class Imaging:
         if spwtype == 'cont':
             restfreqs = [None for spw in spws.split(',')]
             start = None
-            width = None
+            width = self.cp['contwidth']
             nchans = [None for spw in spws.split(',')]
             outframe = self.cp['contoutframe']
             veltype = None
@@ -929,11 +967,11 @@ class Imaging:
             #
             if nchan is None:
                 # get number of channels from dirty image
-                imagename = '{0}.spw{1}.{2}.channel.dirty'.format(self.field, spw, self.stokes)
+                imagename = '{0}.spw{1}.{2}.channel'.format(self.field, spw, self.stokes)
                 if self.uvtaper:
                     imagename = imagename + '.uvtaper'
                 imagename = os.path.join(self.outdir, imagename)
-                imagename = imagename + '.image.fits'
+                imagename = imagename + '.dirty.image.fits'
                 if not os.path.exists(imagename):
                     raise ValueError("Must create dirty channel cube first: {0}".format(imagename))
                 dirty_hdr = fits.getheader(imagename)
@@ -945,18 +983,18 @@ class Imaging:
             #
             # If not interactive, Lightly clean spw
             #
+            imagename = '{0}.spw{1}.{2}.channel'.format(self.field, spw, self.stokes)
+            if self.uvtaper:
+                imagename = imagename + '.uvtaper'
+                mask = '{0}.spw{1}.{2}.mfs.uvtaper.mask'.format(self.field, spw, self.stokes)
+            else:
+                mask = '{0}.spw{1}.{2}.mfs.mask'.format(self.field, spw, self.stokes)
+            imagename = os.path.join(self.outdir, imagename)
+            mask = os.path.join(self.outdir, mask)
+            if not os.path.isdir(mask):
+                self.logger.critical('Error: {0} does not exist'.format(mask))
+                raise ValueError('{0} does not exist'.format(mask))
             if not self.interactive:
-                imagename = '{0}.spw{1}.{2}.channel.lightclean'.format(self.field, spw, self.stokes)
-                if self.uvtaper:
-                    imagename = imagename + '.uvtaper'
-                    mask = '{0}.spw{1}.{2}.mfs.clean.uvtaper.mask'.format(self.field, spw, self.stokes)
-                else:
-                    mask = '{0}.spw{1}.{2}.mfs.clean.mask'.format(self.field, spw, self.stokes)
-                imagename = os.path.join(self.outdir, imagename)
-                mask = os.path.join(self.outdir, mask)
-                if not os.path.isdir(mask):
-                    self.logger.critical('Error: {0} does not exist'.format(mask))
-                    raise ValueError('{0} does not exist'.format(mask))
                 self.logger.info('Lightly cleaning spw {0} (restfreq: {1})...'.format(spw, restfreq))
                 self.logger.info('Using mask: {0}'.format(mask))
                 casa.tclean(vis=self.vis, imagename=imagename,
@@ -977,36 +1015,23 @@ class Imaging:
                             outframe=outframe, veltype=veltype,
                             interpolation=interpolation,
                             uvtaper=self.cp['outertaper'],
-                            stokes=self.stokes, pbcor=False)
+                            uvrange=self.uvrange,
+                            stokes=self.stokes, pbcor=False,
+                            restart=True, calcres=False, calcpsf=False)
                 #
                 # Get RMS of residuals
                 #
                 dat = casa.imstat(imagename='{0}.residual'.format(imagename),
                                   axes=[0, 1], mask="'{0}.mask' == 0".format(imagename))
                 self.logger.info('Max un-masked RMS: {0:.2f} mJy/beam'.format(1000.*np.max(dat['rms'])))
-                self.logger.info('Mean un-masked RMS: {0:.2f} mJy/beam'.format(1000.*np.mean(dat['rms'])))
-                self.logger.info('Median un-masked RMS: {0:.2f} mJy/beam'.format(1000.*np.median(dat['rms'])))
                 self.logger.info('Max un-masked MAD*1.4826: {0:.2f} mJy/beam'.format(1000.*1.4826*np.max(dat['medabsdevmed'])))
-                self.logger.info('Mean un-masked MAD*1.4826: {0:.2f} mJy/beam'.format(1000.*1.4826*np.mean(dat['medabsdevmed'])))
-                self.logger.info('Median un-masked MAD*1.4826: {0:.2f} mJy/beam'.format(1000.*1.4826*np.median(dat['medabsdevmed'])))
-                self.logger.info('Using median MADS*1.4826 times {0} (user-defined) as threshold'.format(self.cp['nrms']))
-                threshold = '{0:.2f}mJy'.format(self.cp['nrms']*1000.*1.4826*np.median(dat['medabsdevmed']))
+                self.logger.info('Using max MAD*1.4826 times {0} (user-defined) as threshold'.format(self.cp['nrms']))
+                threshold = '{0:.2f}mJy'.format(self.cp['nrms']*1000.*1.4826*np.max(dat['medabsdevmed']))
             else:
                 threshold = '0.0mJy'
             #
             # Deep clean to threshold
             #
-            imagename = '{0}.spw{1}.{2}.channel.clean'.format(self.field, spw, self.stokes)
-            if self.uvtaper:
-                imagename = imagename + '.uvtaper'
-                mask = '{0}.spw{1}.{2}.mfs.clean.uvtaper.mask'.format(self.field, spw, self.stokes)
-            else:
-                mask = '{0}.spw{1}.{2}.mfs.clean.mask'.format(self.field, spw, self.stokes)
-            imagename = os.path.join(self.outdir, imagename)
-            mask = os.path.join(self.outdir, mask)
-            if not os.path.isdir(mask):
-                self.logger.critical('Error: {0} does not exist'.format(mask))
-                raise ValueError('{0} does not exist'.format(mask))
             self.logger.info('Cleaning spw {0} (restfreq: {1}) to threshold: {2}...'.format(spw, restfreq, threshold))
             self.logger.info('Using mask: {0}'.format(mask))
             casa.tclean(vis=self.vis, imagename=imagename,
@@ -1025,20 +1050,18 @@ class Imaging:
                         start=start, width=width, nchan=nchan,
                         outframe=outframe, veltype=veltype,
                         interpolation=interpolation,
-                        uvtaper=self.cp['outertaper'], pbcor=False,
+                        uvtaper=self.cp['outertaper'],
+                        uvrange=self.uvrange, pbcor=False,
                         stokes=self.stokes,
-                        interactive=self.interactive)
+                        interactive=self.interactive,
+                        restart=True, calcres=False, calcpsf=False)
             self.logger.info('Done.')
             #
             # Primary beam correction
             #
-            pbimagename = '{0}.spw{1}.{2}.channel.pb'.format(self.field, spw, self.stokes)
-            if self.uvtaper:
-                pbimagename = pbimagename + '.uvtaper'
-            pbimagename = os.path.join(self.outdir, pbimagename)
             self.logger.info('Performing primary beam correction...')
             casa.impbcor(imagename='{0}.image'.format(imagename),
-                         pbimage='{0}.pb'.format(pbimagename),
+                         pbimage='{0}.pb.image'.format(imagename),
                          outfile='{0}.pbcor.image'.format(imagename),
                          overwrite=True)
             self.logger.info('Done.')
@@ -1046,20 +1069,21 @@ class Imaging:
             # Export to fits
             #
             self.logger.info('Exporting fits file...')
+            velocity = spwtype == 'line'
             casa.exportfits(imagename='{0}.image'.format(imagename),
-                            fitsimage='{0}.image.fits'.format(imagename),
-                            velocity=True, overwrite=True,
+                            fitsimage='{0}.clean.image.fits'.format(imagename),
+                            velocity=velocity, overwrite=True,
                             history=False)
             casa.exportfits(imagename='{0}.mask'.format(imagename),
-                            fitsimage='{0}.mask.fits'.format(imagename),
+                            fitsimage='{0}.clean.mask.fits'.format(imagename),
                             overwrite=True, history=False)
             casa.exportfits(imagename='{0}.residual'.format(imagename),
-                            fitsimage='{0}.residual.fits'.format(imagename),
-                            velocity=True, overwrite=True,
+                            fitsimage='{0}.clean.residual.fits'.format(imagename),
+                            velocity=velocity, overwrite=True,
                             history=False)
             casa.exportfits(imagename='{0}.pbcor.image'.format(imagename),
-                            fitsimage='{0}.pbcor.image.fits'.format(imagename),
-                            velocity=True, overwrite=True,
+                            fitsimage='{0}.clean.pbcor.image.fits'.format(imagename),
+                            velocity=velocity, overwrite=True,
                             history=False)
             self.logger.info('Done.')
 
@@ -1465,6 +1489,7 @@ class Imaging:
         self.logger.info('Done.')
 
 def main(vis, field, config_file, outdir='.', stokes='I', spws='',
+         uvrange='',
          uvtaper=False, interactive=False, savemodel=None, auto=''):
     """
     Generate and clean images
@@ -1484,6 +1509,8 @@ def main(vis, field, config_file, outdir='.', stokes='I', spws='',
       spws :: string
         comma-separated list of spws to clean
         if empty, clean all spws
+      uvrange :: string
+        Selection on UV-range
       uvtaper :: boolean
         if True, apply UV tapering
       interactive :: boolean
@@ -1527,7 +1554,7 @@ def main(vis, field, config_file, outdir='.', stokes='I', spws='',
     # Initialize Imaging object
     #
     imag = Imaging(vis, field, logger, config, outdir=outdir, uvtaper=uvtaper,
-                   spws=spws, stokes=stokes, savemodel=savemodel,
+                   spws=spws, uvrange=uvrange, stokes=stokes, savemodel=savemodel,
                    interactive=interactive)
     #
     # Prompt the user with a menu for each option, or auto-do them

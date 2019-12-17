@@ -376,7 +376,7 @@ class Calibration:
         Returns: Nothing
         """
         self.logger.info('Saving flag state...')
-        cur_time = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
+        cur_time = time.strftime('%Y %m %d %H %M %S', time.gmtime())
         versionname = '{0} {1}'.format(label, cur_time)
         casa.flagmanager(vis=self.vis, mode='save',
                          versionname=versionname)
@@ -994,8 +994,10 @@ class Calibration:
         field = ','.join(self.pri_cals)
         if os.path.isdir(caltable):
             casa.rmtables(caltable)
+        spw = self.config.get('Bandpass', 'Bandpass Select')
+        fillgaps = self.config.getint('Bandpass', 'Fill Gaps')
         casa.bandpass(vis=self.vis, caltable=caltable, field=field,
-                      refant=self.refant,
+                      spw=spw, refant=self.refant, fillgaps=fillgaps,
                       solint='inf', combine='scan', solnorm=True,
                       minblperant=1, parang=self.parang,
                       gaintable=gaintables)
@@ -1089,7 +1091,8 @@ class Calibration:
             casa.rmtables(caltable)
         field = ','.join(self.pol_cals)
         casa.polcal(vis=self.vis, caltable=caltable, field=field,
-                    solint='inf', poltype='D', refant=self.refant,
+                    solint='inf', combine='scan', poltype='Df',
+                    refant=self.refant,
                     minsnr=2.0, minblperant=1, gaintable=gaintables)
         if not os.path.isdir(caltable):
             self.logger.critical('Problem with polarization '
@@ -1098,6 +1101,88 @@ class Calibration:
                              'calibration')
         self.polcal_scan = caltable
         self.logger.info('Done.')
+
+    def get_smodels(self):
+        """
+        Estimate calibrator source polarization from corrected_data
+        column of measurement set.
+
+        Inputs: Nothing
+
+        Returns: smodels
+          smodels :: dictionary
+            For each field, smodel['field_name'] contains a four
+            element list like [1., Q, U, 0.]
+            where Q and U are the estimates of the (fractional)
+            Q and U polarizations of 'field_name'
+        """
+        #
+        # Apply calibration solutions (except flux) to calibrators
+        #
+        self.logger.info('Applying calibration tables to all '
+                         'calibrators...')
+        gaintables = self.gaintables + [
+            self.delays, self.bandpass, self.phase_int,
+            self.apcal_scan, self.polcal_scan]
+        for field in self.pri_cals+self.sec_cals:
+            gainfields = self.gainfields + [
+                '', '', field, field, '']
+            casa.applycal(vis=self.vis, field=field, calwt=self.calwt,
+                          parang=self.parang, gaintable=gaintables,
+                          gainfield=gainfields, flagbackup=False)
+        #
+        # Get source polarization estimates for secondary cals
+        # from corrected_data column
+        #
+        smodels = {}
+        for field in self.pri_cals+self.sec_cals:
+            # get fieldid(s)
+            casa.msmd.open(self.vis)
+            fieldids = list(casa.msmd.fieldsforname(field))
+            casa.msmd.close()
+            # estimate Q and U for each continuum spw
+            # average to get smodel
+            spw_q = []
+            spw_u = []
+            for spw in self.cont_spws.split(','):
+                casa.ms.open(self.vis)
+                casa.ms.selectinit(datadescid=int(spw))
+                casa.ms.select({'field_id':fieldids})
+                casa.ms.selectpolarization(['I', 'Q', 'U', 'V'])
+                data = casa.ms.getdata(['corrected_data', 'flag'])
+                casa.ms.close()
+                # get un-flagged data
+                i = data['corrected_data'][0,:,:][~data['flag'][0,:,:]]
+                q = data['corrected_data'][1,:,:][~data['flag'][1,:,:]]
+                u = data['corrected_data'][2,:,:][~data['flag'][2,:,:]]
+                v = data['corrected_data'][3,:,:][~data['flag'][3,:,:]]
+                ave_i = np.complex(np.mean(np.real(i)), np.mean(np.imag(i)))
+                ave_q = np.complex(np.mean(np.real(q)), np.mean(np.imag(q)))
+                ave_u = np.complex(np.mean(np.real(u)), np.mean(np.imag(u)))
+                ave_v = np.complex(np.mean(np.real(v)), np.mean(np.imag(v)))
+                abs_i = np.sign(np.real(ave_i)) * np.abs(ave_i)
+                abs_q = np.sign(np.real(ave_q)) * np.abs(ave_q)
+                abs_u = np.sign(np.real(ave_u)) * np.abs(ave_u)
+                abs_v = np.sign(np.real(ave_v)) * np.abs(ave_v)
+                self.logger.info('Field %s spw %s has (I,Q,U,V) = (%.4f, %.4f, %.4f, %.4f)',
+                                 field, spw, abs_i, abs_q, abs_u, abs_v)
+                spw_q.append(abs_q/abs_i)
+                spw_u.append(abs_u/abs_i)
+            # average spws
+            estimate_q = np.nanmean(spw_q)
+            std_q = np.nanstd(spw_q)
+            estimate_u = np.nanmean(spw_u)
+            std_u = np.nanstd(spw_u)
+            self.logger.info('Field %s spw average: Q/I=%.4f U/I=%.4f',
+                             field, estimate_q, estimate_u)
+            self.logger.info('Field %s spw std. dev.: Q/I=%.4f U/I=%.4f',
+                             field, std_q, std_u)
+            # skip if this is a polarization and/or flux calibrator
+            if field in self.pol_cals+self.flux_cals:
+                self.logger.info('Not saving smodel because this is a flux or polarization calibrator.')
+                continue
+            smodels[field] = [1, estimate_q, estimate_u, 0]
+        return smodels
 
     def calibration_tables_post_polcal(self):
         """
@@ -1110,28 +1195,9 @@ class Calibration:
         Returns: Nothing
         """
         #
-        # Get source polarization estimates for secondary cals
+        # Get source polarization models from MS
         #
-        smodels = {}
-        for field in self.pri_cals+self.sec_cals:
-            # skip if this is a polarization and/or flux calibrator
-            if field in self.pol_cals+self.flux_cals:
-                continue
-            # get fieldid(s)
-            casa.msmd.open(self.vis)
-            fieldids = list(casa.msmd.fieldsforname(field))
-            casa.msmd.close()
-            # get QU first-order correction.
-            qu = qufromgain(self.apcal_scan, fieldids=fieldids)
-            # average all spectral windows.
-            estimate_q = np.mean([qu[fieldid][0] for fieldid in
-                                  fieldids if fieldid in qu.keys()])
-            estimate_u = np.mean([qu[fieldid][1] for fieldid in
-                                  fieldids if fieldid in qu.keys()])
-            # set polarization solution
-            self.logger.info('For %s using Q=%.4f, U=%.4f',
-                             field, estimate_q, estimate_u)
-            smodels[field] = [1, estimate_q, estimate_u, 0]
+        smodels = self.get_smodels()
         #
         # bandpass calibration. Combine all scans
         #
@@ -1147,8 +1213,10 @@ class Calibration:
         # First the polarization and flux calibrators
         #
         field = ','.join(list(set(self.pol_cals+self.flux_cals)))
+        spw = self.config.get('Bandpass', 'Bandpass Select')
+        fillgaps = self.config.getint('Bandpass', 'Fill Gaps')
         casa.bandpass(vis=self.vis, caltable=caltable, field=field,
-                      refant=self.refant,
+                      spw=spw, refant=self.refant, fillgaps=fillgaps,
                       solint='inf', combine='scan', solnorm=True,
                       minblperant=1, parang=self.parang,
                       gaintable=gaintables)
@@ -1159,7 +1227,7 @@ class Calibration:
             if field in self.pol_cals+self.flux_cals:
                 continue
             casa.bandpass(vis=self.vis, caltable=caltable,
-                          field=field, 
+                          field=field, spw=spw, fillgaps=fillgaps,
                           refant=self.refant, solint='inf',
                           combine='scan', solnorm=True, minblperant=1,
                           parang=self.parang, gaintable=gaintables,
@@ -1297,7 +1365,8 @@ class Calibration:
             casa.rmtables(caltable)
         field = ','.join(self.pol_cals)
         casa.polcal(vis=self.vis, caltable=caltable, field=field,
-                    solint='inf', poltype='D', refant=self.refant,
+                    solint='inf', combine='scan', poltype='Df',
+                    refant=self.refant,
                     minsnr=2.0, minblperant=1, gaintable=gaintables)
         if not os.path.isdir(caltable):
             self.logger.critical('Problem with polarization '
@@ -1472,6 +1541,11 @@ class Calibration:
             # leakage tables
             #
             self.calibration_tables_post_polcal()
+            #
+            # Run get_smodels so user can see how polarization
+            # calibration improved
+            #
+            smodels = self.get_smodels()
         #
         # set the flux scale
         #
