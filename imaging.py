@@ -27,6 +27,9 @@ Trey V. Wenger November 2018 - V1.0
 
 Trey V. Wenger September 2019 - V2.0
     Added polarization imaging. Re-designed to OOP framework.
+
+Trey V. Wenger January 2020 - V2.1
+    Added parallel option for TCLEAN
 """
 
 import os
@@ -156,7 +159,7 @@ class Imaging:
     def __init__(self, vis, field, logger, config, outdir='.',
                  uvtaper=False,
                  spws='', uvrange='', stokes='I', savemodel=None,
-                 interactive=False):
+                 interactive=False, parallel=False):
         """
         Create a new Imaging object. Get imaging parameters from
         configuration file.
@@ -191,6 +194,8 @@ class Imaging:
             if savemodel == 'clean': save the model after niter
           interactive :: boolean
             if True, interactively clean
+          parallel :: boolean
+            if True, use parallel TCLEAN
 
         Returns: imaging
           imaging :: imaging.Imaging object
@@ -211,6 +216,7 @@ class Imaging:
                 raise ValueError('Invalid savemodel: {0}'.format(savemode))
         self.savemodel = savemodel
         self.interactive = interactive
+        self.parallel = parallel
         #
         # Get continuum and line spws from configuration file
         #
@@ -355,7 +361,8 @@ class Imaging:
                     robust=self.cp['robust'],
                     uvtaper=self.cp['outertaper'],
                     uvrange=self.uvrange,
-                    stokes=self.stokes, pbcor=False)
+                    stokes=self.stokes, pbcor=False,
+                    parallel=self.parallel)
         self.logger.info('Done.')
         #
         # Primary beam correction
@@ -447,7 +454,8 @@ class Imaging:
                         uvtaper=self.cp['outertaper'],
                         uvrange=self.uvrange,
                         stokes=self.stokes, pbcor=False,
-                        restart=True, calcres=False, calcpsf=False)
+                        restart=True, calcres=False, calcpsf=False,
+                        parallel=self.parallel)
             self.logger.info('Done.')
             #
             # Get RMS of residuals outside of clean mask
@@ -496,7 +504,8 @@ class Imaging:
                     uvrange=self.uvrange,
                     pbcor=False,
                     stokes=self.stokes, interactive=self.interactive,
-                    restart=True, calcres=False, calcpsf=False)
+                    restart=True, calcres=False, calcpsf=False,
+                    parallel=self.parallel)
         self.logger.info('Done.')
         #
         # Primary beam correction using PB of center channel
@@ -577,7 +586,8 @@ class Imaging:
                         robust=self.cp['robust'],
                         uvtaper=self.cp['outertaper'],
                         uvrange=self.uvrange,
-                        stokes=self.stokes, pbcor=False)
+                        stokes=self.stokes, pbcor=False,
+                        parallel=self.parallel)
             self.logger.info('Done.')
             #
             # Generate primary beam image
@@ -671,7 +681,8 @@ class Imaging:
                             uvrange=self.uvrange,
                             stokes=self.stokes, savemodel=savemodel,
                             pbcor=False,
-                            restart=True, calcres=False, calcpsf=False)
+                            restart=True, calcres=False, calcpsf=False,
+                            parallel=self.parallel)
                 self.logger.info('Done.')
                 #
                 # Get RMS of residuals
@@ -719,7 +730,8 @@ class Imaging:
                         uvrange=self.uvrange, pbcor=False,
                         stokes=self.stokes, savemodel=savemodel,
                         interactive=self.interactive,
-                        restart=True, calcres=False, calcpsf=False)
+                        restart=True, calcres=False, calcpsf=False,
+                        parallel=self.parallel)
             self.logger.info('Done.')
             #
             # Primary beam correction
@@ -845,7 +857,8 @@ class Imaging:
                         interpolation=interpolation,
                         uvtaper=self.cp['outertaper'],
                         uvrange=self.uvrange,
-                        stokes=self.stokes, pbcor=False)
+                        stokes=self.stokes, pbcor=False,
+                        parallel=self.parallel)
             self.logger.info('Done.')
             #
             # Generate primary beam image
@@ -1017,7 +1030,13 @@ class Imaging:
                             uvtaper=self.cp['outertaper'],
                             uvrange=self.uvrange,
                             stokes=self.stokes, pbcor=False,
-                            restart=True, calcres=False, calcpsf=False)
+                            restart=True, calcres=False, calcpsf=False,
+                            parallel=self.parallel)
+                #
+                # This generates a channel mask, so next clean can't
+                # have mfs mask
+                #
+                mask = ''
                 #
                 # Get RMS of residuals
                 #
@@ -1026,14 +1045,15 @@ class Imaging:
                 self.logger.info('Max un-masked RMS: {0:.2f} mJy/beam'.format(1000.*np.max(dat['rms'])))
                 self.logger.info('Max un-masked MAD*1.4826: {0:.2f} mJy/beam'.format(1000.*1.4826*np.max(dat['medabsdevmed'])))
                 self.logger.info('Using max MAD*1.4826 times {0} (user-defined) as threshold'.format(self.cp['nrms']))
-                threshold = '{0:.2f}mJy'.format(self.cp['nrms']*1000.*1.4826*np.max(dat['medabsdevmed']))
+                threshold = '{0:.2f}mJy'.format(self.cp['nrms']*1000.*1.4826*np.max(dat['medabsdevmed']))                
             else:
                 threshold = '0.0mJy'
             #
             # Deep clean to threshold
             #
             self.logger.info('Cleaning spw {0} (restfreq: {1}) to threshold: {2}...'.format(spw, restfreq, threshold))
-            self.logger.info('Using mask: {0}'.format(mask))
+            if mask:
+                self.logger.info('Using mask: {0}'.format(mask))
             casa.tclean(vis=self.vis, imagename=imagename,
                         phasecenter=self.cp['phasecenter'],
                         field=self.field, spw=spw, specmode='cube',
@@ -1054,7 +1074,8 @@ class Imaging:
                         uvrange=self.uvrange, pbcor=False,
                         stokes=self.stokes,
                         interactive=self.interactive,
-                        restart=True, calcres=False, calcpsf=False)
+                        restart=True, calcres=False, calcpsf=False,
+                        parallel=self.parallel)
             self.logger.info('Done.')
             #
             # Primary beam correction
@@ -1490,7 +1511,8 @@ class Imaging:
 
 def main(vis, field, config_file, outdir='.', stokes='I', spws='',
          uvrange='',
-         uvtaper=False, interactive=False, savemodel=None, auto=''):
+         uvtaper=False, interactive=False, savemodel=None, 
+         parallel=False, auto=''):
     """
     Generate and clean images
 
@@ -1521,6 +1543,9 @@ def main(vis, field, config_file, outdir='.', stokes='I', spws='',
         self-calibration. This can only be done with stokes='I'.
         if savemodel == 'light': save the model after lightniter
         if savemodel == 'clean': save the model after niter
+      parallel :: boolean
+        if True, run parallel TCLEAN
+        N.B. CASA must be started in MPI mode (via mpicasa)
       auto :: string
         if not an empty string, it is a comma separated
         list of menu items to perform, i.e. auto='0,1,4,5,6'
@@ -1555,7 +1580,7 @@ def main(vis, field, config_file, outdir='.', stokes='I', spws='',
     #
     imag = Imaging(vis, field, logger, config, outdir=outdir, uvtaper=uvtaper,
                    spws=spws, uvrange=uvrange, stokes=stokes, savemodel=savemodel,
-                   interactive=interactive)
+                   interactive=interactive, parallel=parallel)
     #
     # Prompt the user with a menu for each option, or auto-do them
     #

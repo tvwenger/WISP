@@ -69,7 +69,7 @@ class SelfCalibration:
     a measurement set.
     """
 
-    def __init__(self, vis, refant, logger, config):
+    def __init__(self, vis, spw, refant, logger, config):
         """
         Create a new SelfCalibration object. Create a listobs file
         and generate plotcal directory.
@@ -77,6 +77,8 @@ class SelfCalibration:
         Inputs:
           vis :: string
             The masurement set
+          spw :: string
+            Comma-separated list of spws to calibrate
           refant :: string
             The reference antenna to use
           logger :: logging.Logger object
@@ -89,6 +91,7 @@ class SelfCalibration:
             a new SelfCalibration object
         """
         self.vis = vis
+        self.spw = spw
         self.refant = refant
         self.logger = logger
         self.config = config
@@ -137,7 +140,7 @@ class SelfCalibration:
         Returns: Nothing
         """
         self.logger.info('Saving flag state...')
-        cur_time = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
+        cur_time = time.strftime('%Y %m %d %H %M %S', time.gmtime())
         versionname = '{0} {1}'.format(label, cur_time)
         casa.flagmanager(vis=self.vis, mode='save',
                          versionname=versionname)
@@ -159,7 +162,7 @@ class SelfCalibration:
         casa.gaincal(vis=self.vis, caltable=caltable, field=self.field,
                      solint='inf', calmode='p', refant=self.refant,
                      gaintype='G', minsnr=2.0, minblperant=1,
-                     parang=self.parang, gaintable=[])
+                     parang=self.parang, gaintable=[], spw=self.spw)
         if not os.path.isdir(caltable):
             self.logger.critical('Problem with scan-timescale phase '
                                  'calibration')
@@ -183,7 +186,7 @@ class SelfCalibration:
                           parang=self.parang,
                           gaintable=['phase_scan.Gcal'],
                           gainfield=[self.field],
-                          flagbackup=False)
+                          flagbackup=False, spw=self.spw)
         self.logger.info('Done.')
         self.save_flags('post self-calibrate')
         #
@@ -196,7 +199,7 @@ class SelfCalibration:
         # Generate calibration plots
         #
         casa.plotms(vis='phase_scan.Gcal', xaxis='time', yaxis='phase',
-                    field=self.field, iteraxis='spw',
+                    field=self.field, spw=self.spw, iteraxis='spw',
                     coloraxis='antenna1',
                     title='phase_scan.Gcal'.replace('_', '\_'),
                     plotfile='plotcal_figures/0_phase_scan.png',
@@ -232,7 +235,7 @@ class SelfCalibration:
         os.system('pdflatex -interaction=batchmode plotcal_figures.tex')
         self.logger.info('Done.')
 
-def main(vis, refant, config_file):
+def main(vis, refant, config_file, spw=''):
     """
     Run the self-calibration pipeline
 
@@ -243,6 +246,9 @@ def main(vis, refant, config_file):
         The reference antenna to use
       config_file :: string
         The filename of the configuration file for this project
+      spw :: string
+        Comma-separated list of spws to calibrate. If empty,
+        calibrate all.
 
     Returns: Nothing
     """
@@ -270,7 +276,7 @@ def main(vis, refant, config_file):
     # Initialize SelfCalibration object
     #
     calib = SelfCalibration(
-        vis, refant, logger, config)
+        vis, spw, refant, logger, config)
     #
     # Save initial flags
     #
