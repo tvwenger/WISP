@@ -157,7 +157,7 @@ class Imaging:
     """
 
     def __init__(self, vis, field, logger, config, outdir='.',
-                 uvtaper=False,
+                 uvtaper=False, outertaper='',
                  spws='', uvrange='', stokes='I', savemodel=None,
                  interactive=False, parallel=False):
         """
@@ -179,6 +179,8 @@ class Imaging:
             self-calibration)
           uvtaper :: boolean
             If True, get UV tapering clean parameters
+          outertaper :: string
+            Tapering FWHM
           spws :: string
             comma-separated list of spws to clean
             if empty, clean all spws
@@ -209,6 +211,7 @@ class Imaging:
         if not os.path.isdir(self.outdir):
             os.mkdir(self.outdir)
         self.uvtaper = uvtaper
+        self.outertaper = outertaper
         self.uvrange = uvrange
         self.stokes = stokes
         if savemodel is not None:
@@ -245,14 +248,11 @@ class Imaging:
         self.cp['nrms'] = config.getfloat('Clean', 'nrms')
         self.cp['contpbchan'] = config.get('Clean', 'contpbchan')
         self.cp['nterms'] = config.getint('Clean', 'nterms')
-        if uvtaper:
-            self.cp['outertaper'] = ['{0}arcsec'.format(config.getfloat('Clean', 'outertaper'))]
-        else:
-            self.cp['outertaper'] = []
         # re-grid info
         self.cp['start'] = config.get('Clean', 'start')
         self.cp['width'] = config.get('Clean', 'width')
         self.cp['nchan'] = config.get('Clean', 'nchan')
+        self.cp['chanchunks'] = config.getint('Clean', 'chanchunks')
         self.cp['end'] = config.get('Clean', 'end')
         self.cp['lineoutframe'] = config.get('Clean', 'lineoutframe')
         self.cp['veltype'] = config.get('Clean', 'veltype')
@@ -359,7 +359,7 @@ class Imaging:
                     cell=self.cp['cell'], 
                     weighting=self.cp['weighting'],
                     robust=self.cp['robust'],
-                    uvtaper=self.cp['outertaper'],
+                    uvtaper=self.outertaper,
                     uvrange=self.uvrange,
                     stokes=self.stokes, pbcor=False,
                     parallel=self.parallel)
@@ -451,7 +451,7 @@ class Imaging:
                         cell=self.cp['cell'],
                         weighting=self.cp['weighting'],
                         robust=self.cp['robust'],
-                        uvtaper=self.cp['outertaper'],
+                        uvtaper=self.outertaper,
                         uvrange=self.uvrange,
                         stokes=self.stokes, pbcor=False,
                         restart=True, calcres=False, calcpsf=False,
@@ -500,7 +500,7 @@ class Imaging:
                     cell=self.cp['cell'],
                     weighting=self.cp['weighting'],
                     robust=self.cp['robust'],
-                    uvtaper=self.cp['outertaper'],
+                    uvtaper=self.outertaper,
                     uvrange=self.uvrange,
                     pbcor=False,
                     stokes=self.stokes, interactive=self.interactive,
@@ -584,7 +584,7 @@ class Imaging:
                         cell=self.cp['cell'],
                         weighting=self.cp['weighting'],
                         robust=self.cp['robust'],
-                        uvtaper=self.cp['outertaper'],
+                        uvtaper=self.outertaper,
                         uvrange=self.uvrange,
                         stokes=self.stokes, pbcor=False,
                         parallel=self.parallel)
@@ -677,7 +677,7 @@ class Imaging:
                             cell=self.cp['cell'],
                             weighting=self.cp['weighting'],
                             robust=self.cp['robust'],
-                            uvtaper=self.cp['outertaper'],
+                            uvtaper=self.outertaper,
                             uvrange=self.uvrange,
                             stokes=self.stokes, savemodel=savemodel,
                             pbcor=False,
@@ -726,7 +726,7 @@ class Imaging:
                         cell=self.cp['cell'],
                         weighting=self.cp['weighting'],
                         robust=self.cp['robust'],
-                        uvtaper=self.cp['outertaper'],
+                        uvtaper=self.outertaper,
                         uvrange=self.uvrange, pbcor=False,
                         stokes=self.stokes, savemodel=savemodel,
                         interactive=self.interactive,
@@ -812,19 +812,20 @@ class Imaging:
                 # and width
                 #
                 if self.cp['width']:
-                    nchans = [int((float(self.cp['end'])-float(self.cp['start']))/self.cp['width'])+1
+                    nchans = [int(abs(float(self.cp['end'])-float(self.cp['start']))/float(self.cp['width']))+1
                               for spw in spws.split(',')]
-                #
-                # Otherwise, get native velocity width from MS
-                #
-                nchans = []
-                casa.msmd.open(self.vis)
-                for spw, restfreq in zip(spws.split(','), restfreqs):
-                    center_hz = casa.msmd.meanfreq(int(spw))
-                    width_hz = np.mean(casa.msmd.chanwidths(int(spw)))
-                    width_kms = width_hz/center_hz * 299792.458 # km/s
-                    nchans.append(int((float(self.cp['end'])-float(self.cp['start']))/width_kms)+1)
-                casa.msmd.close()
+                else:
+                    #
+                    # Otherwise, get native velocity width from MS
+                    #
+                    nchans = []
+                    casa.msmd.open(self.vis)
+                    for spw, restfreq in zip(spws.split(','), restfreqs):
+                        center_hz = casa.msmd.meanfreq(int(spw))
+                        width_hz = np.mean(casa.msmd.chanwidths(int(spw)))
+                        width_kms = width_hz/center_hz * 299792.458 # km/s
+                        nchans.append(int(abs(float(self.cp['end'])-float(self.cp['start'])/width_kms))+1)
+                    casa.msmd.close()
         else:
             self.logger.critical('Error: spwtype {0} not supported'.format(spwtype))
             raise ValueError('Invalid spwtype')
@@ -855,10 +856,11 @@ class Imaging:
                         start=start, width=width, nchan=nchan,
                         outframe=outframe, veltype=veltype,
                         interpolation=interpolation,
-                        uvtaper=self.cp['outertaper'],
+                        uvtaper=self.outertaper,
                         uvrange=self.uvrange,
                         stokes=self.stokes, pbcor=False,
-                        parallel=self.parallel)
+                        parallel=self.parallel,
+                        chanchunks=self.cp['chanchunks'])
             self.logger.info('Done.')
             #
             # Generate primary beam image
@@ -955,19 +957,20 @@ class Imaging:
                 # and width
                 #
                 if self.cp['width']:
-                    nchans = [int((float(self.cp['end'])-float(self.cp['start']))/self.cp['width'])+1
+                    nchans = [int(abs(float(self.cp['end'])-float(self.cp['start']))/float(self.cp['width']))+1
                               for spw in spws.split(',')]
-                #
-                # Otherwise, get native velocity width from MS
-                #
-                nchans = []
-                casa.msmd.open(self.vis)
-                for spw, restfreq in zip(spws.split(','), restfreqs):
-                    center_hz = casa.msmd.meanfreq(int(spw))
-                    width_hz = np.mean(casa.msmd.chanwidths(int(spw)))
-                    width_kms = width_hz/center_hz * 299792.458 # km/s
-                    nchans.append(int((float(self.cp['end'])-float(self.cp['start']))/width_kms)+1)
-                casa.msmd.close()
+                else:
+                    #
+                    # Otherwise, get native velocity width from MS
+                    #
+                    nchans = []
+                    casa.msmd.open(self.vis)
+                    for spw, restfreq in zip(spws.split(','), restfreqs):
+                        center_hz = casa.msmd.meanfreq(int(spw))
+                        width_hz = np.mean(casa.msmd.chanwidths(int(spw)))
+                        width_kms = width_hz/center_hz * 299792.458 # km/s
+                        nchans.append(int(abs(float(self.cp['end'])-float(self.cp['start']))/width_kms)+1)
+                    casa.msmd.close()
         else:
             self.logger.critical('Error: spwtype {0} not supported'.format(spwtype))
             raise ValueError('Invalid spwtype')
@@ -1027,11 +1030,12 @@ class Imaging:
                             width=width, nchan=nchan,
                             outframe=outframe, veltype=veltype,
                             interpolation=interpolation,
-                            uvtaper=self.cp['outertaper'],
+                            uvtaper=self.outertaper,
                             uvrange=self.uvrange,
                             stokes=self.stokes, pbcor=False,
                             restart=True, calcres=False, calcpsf=False,
-                            parallel=self.parallel)
+                            parallel=self.parallel,
+                            chanchunks=self.cp['chanchunks'])
                 #
                 # This generates a channel mask, so next clean can't
                 # have mfs mask
@@ -1070,12 +1074,13 @@ class Imaging:
                         start=start, width=width, nchan=nchan,
                         outframe=outframe, veltype=veltype,
                         interpolation=interpolation,
-                        uvtaper=self.cp['outertaper'],
+                        uvtaper=self.outertaper,
                         uvrange=self.uvrange, pbcor=False,
                         stokes=self.stokes,
                         interactive=self.interactive,
                         restart=True, calcres=False, calcpsf=False,
-                        parallel=self.parallel)
+                        parallel=self.parallel,
+                        chanchunks=self.cp['chanchunks'])
             self.logger.info('Done.')
             #
             # Primary beam correction
@@ -1133,19 +1138,19 @@ class Imaging:
             # check that this spectral window exists
             fname = '{0}.{1}.{2}.mfs.clean.image.fits'.format(self.field, spw, self.stokes)
             if self.uvtaper:
-                fname = '{0}.{1}.{2}.mfs.clean.uvtaper.image.fits'.format(self.field, spw, self.stokes)
+                fname = '{0}.{1}.{2}.mfs.uvtaper.clean.image.fits'.format(self.field, spw, self.stokes)
             fname = os.path.join(self.outdir, fname)
             if not os.path.exists(fname):
                 continue
             if self.uvtaper:
-                fitsfiles = ['{0}.{1}.{2}.mfs.dirty.uvtaper.image.fits'.format(self.field, spw, self.stokes),
-                             '{0}.{1}.{2}.mfs.clean.uvtaper.image.fits'.format(self.field, spw, self.stokes),
-                             '{0}.{1}.{2}.mfs.clean.uvtaper.residual.fits'.format(self.field, spw, self.stokes),
-                             '{0}.{1}.{2}.mfs.clean.uvtaper.pbcor.image.fits'.format(self.field, spw, self.stokes)]
-                maskfiles = ['{0}.{1}.{2}.mfs.clean.uvtaper.mask.fits'.format(self.field, spw, self.stokes),
-                             '{0}.{1}.{2}.mfs.clean.uvtaper.mask.fits'.format(self.field, spw, self.stokes),
-                             '{0}.{1}.{2}.mfs.clean.uvtaper.mask.fits'.format(self.field, spw, self.stokes),
-                             '{0}.{1}.{2}.mfs.clean.uvtaper.mask.fits'.format(self.field, spw, self.stokes)]
+                fitsfiles = ['{0}.{1}.{2}.mfs.uvtaper.dirty.image.fits'.format(self.field, spw, self.stokes),
+                             '{0}.{1}.{2}.mfs.uvtaper.clean.image.fits'.format(self.field, spw, self.stokes),
+                             '{0}.{1}.{2}.mfs.uvtaper.clean.residual.fits'.format(self.field, spw, self.stokes),
+                             '{0}.{1}.{2}.mfs.uvtaper.clean.pbcor.image.fits'.format(self.field, spw, self.stokes)]
+                maskfiles = ['{0}.{1}.{2}.mfs.uvtaper.clean.mask.fits'.format(self.field, spw, self.stokes),
+                             '{0}.{1}.{2}.mfs.uvtaper.clean.mask.fits'.format(self.field, spw, self.stokes),
+                             '{0}.{1}.{2}.mfs.uvtaper.clean.mask.fits'.format(self.field, spw, self.stokes),
+                             '{0}.{1}.{2}.mfs.uvtaper.clean.mask.fits'.format(self.field, spw, self.stokes)]
                 titles = ['{0} - {1} - Taper/Dirty'.format(self.field, spw),
                           '{0} - {1} - Taper/Clean'.format(self.field, spw),
                           '{0} - {1} - Taper/Residual'.format(self.field, spw),
@@ -1314,7 +1319,7 @@ class Imaging:
             # check that this spectral window exists
             fname = '{0}.spw{1}.{2}.channel.clean.image.fits'.format(self.field, spw, self.stokes)
             if self.uvtaper:
-                fname = '{0}.spw{1}.{2}.channel.clean.uvtaper.image.fits'.format(self.field, spw, self.stokes)
+                fname = '{0}.spw{1}.{2}.channel.uvtaper.clean.image.fits'.format(self.field, spw, self.stokes)
             fname = os.path.join(self.outdir, fname)
             if not os.path.exists(fname):
                 continue
@@ -1322,11 +1327,11 @@ class Imaging:
             # Loop over all plot filenames
             #
             if self.uvtaper:
-                fitsfiles = ['{0}.spw{1}.{2}.channel.dirty.uvtaper.image.fits'.format(self.field, spw, self.stokes),
-                             '{0}.spw{1}.{2}.channel.clean.uvtaper.image.fits'.format(self.field, spw, self.stokes),
-                             '{0}.spw{1}.{2}.channel.clean.uvtaper.residual.fits'.format(self.field, spw, self.stokes),
-                             '{0}.spw{1}.{2}.channel.clean.uvtaper.pbcor.image.fits'.format(self.field, spw, self.stokes)]
-                maskfile = '{0}.spw{1}.{2}.channel.clean.uvtaper.mask.fits'.format(self.field, spw, self.stokes)
+                fitsfiles = ['{0}.spw{1}.{2}.channel.uvtaper.dirty.image.fits'.format(self.field, spw, self.stokes),
+                             '{0}.spw{1}.{2}.channel.uvtaper.clean.image.fits'.format(self.field, spw, self.stokes),
+                             '{0}.spw{1}.{2}.channel.uvtaper.clean.residual.fits'.format(self.field, spw, self.stokes),
+                             '{0}.spw{1}.{2}.channel.uvtaper.clean.pbcor.image.fits'.format(self.field, spw, self.stokes)]
+                maskfile = '{0}.spw{1}.{2}.channel.uvtaper.clean.mask.fits'.format(self.field, spw, self.stokes)
                 titles = ['{0} - {1} - Taper/Dirty'.format(self.field, spw),
                           '{0} - {1} - Taper/Clean'.format(self.field, spw),
                           '{0} - {1} - Taper/Residual'.format(self.field, spw),
@@ -1447,7 +1452,7 @@ class Imaging:
                 # Generate spectrum
                 #
                 if self.uvtaper:
-                    fitsfile = '{0}.spw{1}.{2}.channel.clean.uvtaper.image.fits'.format(self.field, spw, self.stokes)
+                    fitsfile = '{0}.spw{1}.{2}.channel.uvtaper.clean.image.fits'.format(self.field, spw, self.stokes)
                 else:
                     fitsfile = '{0}.spw{1}.{2}.channel.clean.image.fits'.format(self.field, spw, self.stokes)
                 hdu = fits.open(os.path.join(self.outdir, fitsfile))[0]
@@ -1510,9 +1515,8 @@ class Imaging:
         self.logger.info('Done.')
 
 def main(vis, field, config_file, outdir='.', stokes='I', spws='',
-         uvrange='',
-         uvtaper=False, interactive=False, savemodel=None, 
-         parallel=False, auto=''):
+         uvrange='', uvtaper=False, outertaper='',
+         interactive=False, savemodel=None, parallel=False, auto=''):
     """
     Generate and clean images
 
@@ -1535,6 +1539,8 @@ def main(vis, field, config_file, outdir='.', stokes='I', spws='',
         Selection on UV-range
       uvtaper :: boolean
         if True, apply UV tapering
+      outertaper :: string
+        Tapering FWHM
       interactive :: boolean
         if True, interactively clean
       savemodel :: string
@@ -1579,7 +1585,8 @@ def main(vis, field, config_file, outdir='.', stokes='I', spws='',
     # Initialize Imaging object
     #
     imag = Imaging(vis, field, logger, config, outdir=outdir, uvtaper=uvtaper,
-                   spws=spws, uvrange=uvrange, stokes=stokes, savemodel=savemodel,
+                   outertaper=outertaper, spws=spws, uvrange=uvrange,
+                   stokes=stokes, savemodel=savemodel,
                    interactive=interactive, parallel=parallel)
     #
     # Prompt the user with a menu for each option, or auto-do them
