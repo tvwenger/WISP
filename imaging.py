@@ -216,7 +216,7 @@ class Imaging:
         self.stokes = stokes
         if savemodel is not None:
             if savemodel not in ['light','clean']:
-                raise ValueError('Invalid savemodel: {0}'.format(savemode))
+                raise ValueError('Invalid savemodel: {0}'.format(savemodel))
         self.savemodel = savemodel
         self.interactive = interactive
         self.parallel = parallel
@@ -237,6 +237,8 @@ class Imaging:
         self.cp['imsize'] = [int(foo) for foo in config.get('Clean','imsize').split(',')]
         self.cp['frame'] = config.get('Clean', 'frame')
         self.cp['pblimit'] = config.getfloat('Clean', 'pblimit')
+        self.cp['gridder'] = config.get('Clean', 'gridder')
+        self.cp['wprojplanes'] = config.getint('Clean', 'wprojplanes')
         self.cp['cell'] = '{0}arcsec'.format(config.getfloat('Clean', 'cell'))
         self.cp['weighting'] = config.get('Clean', 'weighting')
         self.cp['robust'] = config.getfloat('Clean', 'robust')
@@ -351,6 +353,8 @@ class Imaging:
                     imagename=os.path.join(self.outdir, imagename),
                     phasecenter=self.cp['phasecenter'],
                     field=self.field, spw=self.cont_spws,
+                    gridder=self.cp['gridder'],
+                    wprojplanes=self.cp['wprojplanes'],
                     specmode='mfs', threshold='0mJy', niter=0,
                     nterms=self.cp['nterms'], deconvolver='mtmfs',
                     scales=self.cp['scales'], gain=self.cp['gain'],
@@ -426,11 +430,16 @@ class Imaging:
         if self.uvtaper:
             imagename = imagename + '.uvtaper'
         if not self.interactive:
+            savemodel = 'none'
+            if self.savemodel == 'light':
+                savemodel = 'modelcolumn'
             self.logger.info('Lightly cleaning continuum image (MFS)...')
             casa.tclean(vis=self.vis,
                         imagename=os.path.join(self.outdir, imagename),
                         phasecenter=self.cp['phasecenter'],
                         field=self.field, spw=self.cont_spws,
+                        gridder=self.cp['gridder'],
+                        wprojplanes=self.cp['wprojplanes'],
                         specmode='mfs', threshold='0mJy',
                         niter=self.cp['lightniter']*len(self.stokes),
                         usemask='auto-multithresh',
@@ -455,6 +464,7 @@ class Imaging:
                         uvrange=self.uvrange,
                         stokes=self.stokes, pbcor=False,
                         restart=True, calcres=False, calcpsf=False,
+                        savemodel=savemodel,
                         parallel=self.parallel)
             self.logger.info('Done.')
             #
@@ -476,11 +486,16 @@ class Imaging:
         #
         # Clean to threshold
         #
+        savemodel = 'none'
+        if self.savemodel == 'clean':
+            savemodel = 'modelcolumn'
         self.logger.info('Cleaning continuum image (MFS) to threshold: {0}...'.format(threshold))
         casa.tclean(vis=self.vis,
                     imagename=os.path.join(self.outdir, imagename),
                     phasecenter=self.cp['phasecenter'],
                     field=self.field, spw=self.cont_spws,
+                    gridder=self.cp['gridder'],
+                    wprojplanes=self.cp['wprojplanes'],
                     specmode='mfs', threshold=threshold,
                     niter=self.cp['maxniter']*len(self.stokes),
                     usemask='auto-multithresh',
@@ -505,6 +520,7 @@ class Imaging:
                     pbcor=False,
                     stokes=self.stokes, interactive=self.interactive,
                     restart=True, calcres=False, calcpsf=False,
+                    savemodel=savemodel,
                     parallel=self.parallel)
         self.logger.info('Done.')
         #
@@ -575,6 +591,8 @@ class Imaging:
             casa.tclean(vis=self.vis, imagename=imagename,
                         phasecenter=self.cp['phasecenter'],
                         field=self.field, spw=spw, specmode='mfs',
+                        gridder=self.cp['gridder'],
+                        wprojplanes=self.cp['wprojplanes'],
                         threshold='0mJy', niter=0,
                         deconvolver='multiscale',
                         scales=self.cp['scales'],
@@ -598,13 +616,17 @@ class Imaging:
                    imtemplate='{0}.image'.format(imagename),
                    outimage='{0}.pb.image'.format(imagename),
                    pblimit=self.cp['pblimit'])
+            # drop degenerate axes (channel and stokes if stokes=I)
+            casa.imsubimage(imagename='{0}.pb.image'.format(imagename),
+                            outfile='{0}.pb.image.sub'.format(imagename),
+                            dropdeg=True, overwrite=True)
             self.logger.info('Done.')
             #
             # Primary beam correction
             #
             self.logger.info('Performing primary beam correction...')
             casa.impbcor(imagename='{0}.image'.format(imagename),
-                         pbimage='{0}.pb.image'.format(imagename),
+                         pbimage='{0}.pb.image.sub'.format(imagename),
                          outfile='{0}.pbcor.image'.format(imagename),
                          overwrite=True)
             self.logger.info('Done.')
@@ -612,7 +634,7 @@ class Imaging:
             # Export to fits
             #
             self.logger.info('Exporting fits file...')
-            casa.exportfits(imagename='{0}.pb.image'.format(imagename),
+            casa.exportfits(imagename='{0}.pb.image.sub'.format(imagename),
                             fitsimage='{0}.pb.fits'.format(imagename),
                             overwrite=True, history=False)
             casa.exportfits(imagename='{0}.image'.format(imagename),
@@ -657,6 +679,8 @@ class Imaging:
                 casa.tclean(vis=self.vis, imagename=imagename,
                             phasecenter=self.cp['phasecenter'],
                             field=self.field, spw=spw, specmode='mfs',
+                            gridder=self.cp['gridder'],
+                            wprojplanes=self.cp['wprojplanes'],
                             threshold='0mJy',
                             niter=self.cp['lightniter']*len(self.stokes),
                             usemask='auto-multithresh',
@@ -706,7 +730,10 @@ class Imaging:
             casa.tclean(vis=self.vis, imagename=imagename,
                         field=self.field,
                         phasecenter=self.cp['phasecenter'],
-                        spw=spw, specmode='mfs', threshold=threshold,
+                        spw=spw,
+                        gridder=self.cp['gridder'],
+                        wprojplanes=self.cp['wprojplanes'],
+                        specmode='mfs', threshold=threshold,
                         niter=self.cp['maxniter']*len(self.stokes),
                         usemask='auto-multithresh',
                         pbmask=self.cp[spwtype+'pbmask'],
@@ -738,7 +765,7 @@ class Imaging:
             #
             self.logger.info('Performing primary beam correction...')
             casa.impbcor(imagename='{0}.image'.format(imagename),
-                         pbimage='{0}.pb.image'.format(imagename),
+                         pbimage='{0}.pb.image.sub'.format(imagename),
                          outfile='{0}.pbcor.image'.format(imagename),
                          overwrite=True)
             self.logger.info('Done.')
@@ -844,6 +871,8 @@ class Imaging:
             casa.tclean(vis=self.vis, imagename=imagename,
                         phasecenter=self.cp['phasecenter'],
                         field=self.field, spw=spw, specmode='cube',
+                        gridder=self.cp['gridder'],
+                        wprojplanes=self.cp['wprojplanes'],
                         threshold='0mJy', niter=0,
                         deconvolver='multiscale',
                         scales=self.cp['scales'],
@@ -863,21 +892,18 @@ class Imaging:
                         chanchunks=self.cp['chanchunks'])
             self.logger.info('Done.')
             #
-            # Generate primary beam image
+            # Primary beam correction using MFS pb
             #
-            self.logger.info('Generating primary beam image of spw {0} (channel)...'.format(spw))
-            makePB(vis=self.vis, field=self.field,
-                   spw=spw, uvrange=self.uvrange, stokes=self.stokes,
-                   imtemplate='{0}.image'.format(imagename),
-                   outimage='{0}.pb.image'.format(imagename),
-                   pblimit=self.cp['pblimit'])
-            self.logger.info('Done.')
-            #
-            # Primary beam correction
-            #
+            pbimage = '{0}.spw{1}.{2}.mfs'.format(self.field, spw, self.stokes)
+            if self.uvtaper:
+                pbimage += '.uvtaper'
+            pbimage += '.pb.image.sub'
+            pbimage = os.path.join(self.outdir, pbimage)
             self.logger.info('Performing primary beam correction...')
+            if not os.path.exists(pbimage):
+                raise ValueError("Could not find {0}. Did you dirty MFS first?".format(pbimage))
             casa.impbcor(imagename='{0}.image'.format(imagename),
-                         pbimage='{0}.pb.image'.format(imagename),
+                         pbimage=pbimage,
                          outfile='{0}.pbcor.image'.format(imagename),
                          overwrite=True)
             self.logger.info('Done.')
@@ -886,10 +912,6 @@ class Imaging:
             #
             self.logger.info('Exporting fits file...')
             velocity = spwtype == 'line'
-            casa.exportfits(imagename='{0}.pb.image'.format(imagename),
-                            fitsimage='{0}.pb.fits'.format(imagename),
-                            velocity=velocity, overwrite=True,
-                            history=False)
             casa.exportfits(imagename='{0}.image'.format(imagename),
                             fitsimage='{0}.dirty.image.fits'.format(imagename),
                             velocity=velocity, overwrite=True,
@@ -1016,6 +1038,8 @@ class Imaging:
                 casa.tclean(vis=self.vis, imagename=imagename,
                             phasecenter=self.cp['phasecenter'],
                             field=self.field, spw=spw,
+                            gridder=self.cp['gridder'],
+                            wprojplanes=self.cp['wprojplanes'],
                             specmode='cube', threshold='0mJy',
                             niter=lightniter,
                             mask=mask, deconvolver='multiscale',
@@ -1061,6 +1085,8 @@ class Imaging:
             casa.tclean(vis=self.vis, imagename=imagename,
                         phasecenter=self.cp['phasecenter'],
                         field=self.field, spw=spw, specmode='cube',
+                        gridder=self.cp['gridder'],
+                        wprojplanes=self.cp['wprojplanes'],
                         threshold=threshold,
                         niter=niter,
                         mask=mask, deconvolver='multiscale',
@@ -1083,11 +1109,18 @@ class Imaging:
                         chanchunks=self.cp['chanchunks'])
             self.logger.info('Done.')
             #
-            # Primary beam correction
+            # Primary beam correction using MFS pb
             #
+            pbimage = '{0}.spw{1}.{2}.mfs'.format(self.field, spw, self.stokes)
+            if self.uvtaper:
+                pbimage += '.uvtaper'
+            pbimage += '.pb.image.sub'
+            pbimage = os.path.join(self.outdir, pbimage)
             self.logger.info('Performing primary beam correction...')
+            if not os.path.exists(pbimage):
+                raise ValueError("Could not find {0}. Did you dirty MFS first?".format(pbimage))
             casa.impbcor(imagename='{0}.image'.format(imagename),
-                         pbimage='{0}.pb.image'.format(imagename),
+                         pbimage=pbimage,
                          outfile='{0}.pbcor.image'.format(imagename),
                          overwrite=True)
             self.logger.info('Done.')

@@ -234,7 +234,7 @@ class Calibration:
         self.logger.info('Found continuum spws: %s', self.cont_spws)
         self.logger.info('Found line spws: %s', self.line_spws)
         #
-        # get field names
+        # get unique field names
         #
         self.logger.info('Looking for field names...')
         self.all_fields = casa.vishead(
@@ -354,6 +354,89 @@ class Calibration:
         #
         self.parang = self.config.getboolean(
             'Polarization', 'Parallactic Angle Correction')
+        #
+        # Get field names associated with each scan
+        #
+        print("Identifying secondary calibrators for each science target...")
+        casa.ms.open(self.vis)
+        scans = casa.ms.getscansummary()
+        casa.ms.close()
+        casa.msmd.open(self.vis)
+        fieldnames = casa.msmd.fieldnames()
+        scan_fields = [fieldnames[scans[str(i)]['0']['FieldId']] for i in range(len(scans))]
+        # get indicies of secondary calibrators
+        cal_inds = np.array([
+            i for i in range(len(scan_fields))
+            if scan_fields[i] in self.sec_cals])
+        casa.msmd.close()
+        #
+        # Determine which secondary calibrator to use for each
+        # science target.
+        #
+        self.science_calibrators = {}
+        print("{0:15} {1:15}".format("Target", "Calibrator"))
+        for sci_field in scan_fields:
+            if sci_field in self.pri_cals+self.sec_cals:
+                continue
+            if sci_field in self.science_calibrators:
+                continue
+            # Get indicies of field in all scans
+            sci_inds = np.array([
+                i for i in range(len(scan_fields))
+                if scan_fields[i] == sci_field])
+            calib = None
+            for ind in sci_inds:
+                # get closest calibrator
+                closest = scan_fields[
+                    cal_inds[np.argmin(np.abs(cal_inds - ind))]]
+                # get closest before calibrator
+                try:
+                    closest_before = scan_fields[cal_inds[cal_inds < ind][
+                        np.argmin(np.abs(cal_inds[cal_inds < ind] - ind))]]
+                except ValueError:
+                    # none before
+                    closest_before = None
+                # get closest after calibrator
+                try:
+                    closest_after = scan_fields[cal_inds[cal_inds > ind][
+                        np.argmin(np.abs(cal_inds[cal_inds > ind] - ind))]]
+                except ValueError:
+                    # none after
+                    closest_after = None
+                #
+                # If we've already found a calibrator for this source,
+                # check that we found the same calibrator again.
+                #
+                if calib is not None:
+                    if ((closest_before == closest_after) and
+                        (closest_before == calib)):
+                        # good
+                        continue
+                    elif ((closest_before == closest_after) and
+                          (closest_before != calib)):
+                        # update
+                        calib = closest_before
+                    elif (((closest_before is not None) and
+                           (closest_before == calib)) or
+                          ((closest_after is not None) and
+                           (closest_after == calib))):
+                        # good
+                        continue
+                    else:
+                        raise ValueError("{0} has different closest cals: calib: {1} before: {2} after: {3}".format(
+                            sci_field, calib, closest_before, closest_after))
+                else:
+                    if closest_before is None and closest_after is None:
+                        raise ValueError("No good calibrator {0}".format(sci_field))
+                    elif closest_before == closest_after:
+                        # good
+                        calib = closest_before
+                    elif closest_before is not None:
+                        calib = closest_before
+                    else:
+                        calib = closest_after
+            self.science_calibrators[sci_field] = calib
+            print("{0:15} {1:15}".format(sci_field, calib))
         #
         # create directories for figures
         #
@@ -585,7 +668,7 @@ class Calibration:
         #
         self.logger.info('Extending flags...')
         casa.flagdata(vis=self.vis, mode='extend', extendpols=True,
-                      growtime=75.0, growfreq=50.0, growaround=True,
+                      growtime=90.0, growfreq=90.0, growaround=True,
                       flagbackup=False)
         self.logger.info('Done.')
         self.save_flags('preliminary')
@@ -613,7 +696,7 @@ class Calibration:
         #
         self.logger.info('Extending flags...')
         casa.flagdata(vis=self.vis, mode='extend', extendpols=True,
-                      growtime=75.0, growfreq=50.0, growaround=True,
+                      growtime=90.0, growfreq=90.0, growaround=True,
                       flagbackup=False)
         self.logger.info('Done.')
         self.save_flags('autoflag')
@@ -1663,19 +1746,20 @@ class Calibration:
 
         Returns: Nothing
         """
-        if self.calpol:
-            gaintables = self.gaintables + [
-                self.delays, self.bandpass, self.phase_scan,
-                self.apcal_scan, self.polcal_scan, self.flux]
-            gainfields = self.gainfields + [
-                '', '', 'nearest', 'nearest', '', 'nearest']
-        else:
-            gaintables = self.gaintables + [
-                self.delays, self.bandpass, self.phase_scan,
-                self.apcal_scan, self.flux]
-            gainfields = self.gainfields + [
-                '', '', 'nearest', 'nearest', 'nearest']
         for field in self.sci_targets:
+            sec_cal = self.science_calibrators[field]
+            if self.calpol:
+                gaintables = self.gaintables + [
+                    self.delays, self.bandpass, self.phase_scan,
+                    self.apcal_scan, self.polcal_scan, self.flux]
+                gainfields = self.gainfields + [
+                    '', '', sec_cal, sec_cal, '', sec_cal]
+            else:
+                gaintables = self.gaintables + [
+                    self.delays, self.bandpass, self.phase_scan,
+                    self.apcal_scan, self.flux]
+                gainfields = self.gainfields + [
+                    '', '', sec_cal, sec_cal, sec_cal]
             self.logger.info('Applying calibration solutions to %s',
                              field)
             casa.applycal(vis=self.vis, field=field, calwt=self.calwt,
