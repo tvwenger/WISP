@@ -4,7 +4,7 @@ calibration.py - WISP Calibration Pipeline
 Calibrate a measurement set by scripting CASA tasks and generating
 diagnostic plots.
 
-Copyright(C) 2018-2019 by
+Copyright(C) 2018-2020 by
 Trey V. Wenger; tvwenger@gmail.com
 
 GNU General Public License v3 (GNU GPLv3)
@@ -33,14 +33,20 @@ Trey V. Wenger December 2018 - V1.1
     Changed plotcal figures to use plotms for generation.
 
 Trey V. Wenger August 2019 - V2.0
-    Added polarization calibration.
+    Added polarization leakage calibration.
     Re-designed to OOP framework.
     Speed up interpolation.
+
+Trey V. Wenger August 2019 - V2.1
+    Improve code readability.
+    Restructure polarization calibration.
+    Add support for polarization angle calibration.
 """
+
+__version__ = '2.1'
 
 import os
 import glob
-import re
 import time
 import pickle
 
@@ -51,10 +57,9 @@ import logging.config
 import numpy as np
 from scipy.interpolate import interp1d
 
-import __main__ as casa
-from recipes.atcapolhelpers import qufromgain
+from src.utils import generate_pdf
 
-__version__ = '2.0'
+import __main__ as casa
 
 # load logging configuration file
 logging.config.fileConfig('logging.conf')
@@ -65,26 +70,6 @@ try:
 except NameError:
     pass
 
-def natural_sort(mylist):
-    """
-    Natural sort an alphanumeric list
-
-    Inputs: mylist
-      mylist :: list of strings
-        The list of strings to be sorted
-
-    Returns: sorted_list
-      sorted_list :: list of strings
-        The sorted list
-    """
-    # Convert text to integers or lowercase
-    convert = \
-        lambda text: int(text) if text.isdigit() else text.lower()
-    # define the sorting algorithm
-    alphanum_key = lambda key: [convert(c) for c in
-                                re.split('([0-9]+)', key)]
-    # return the sorted list
-    return sorted(mylist, key=alphanum_key)
 
 class Calibration:
     """
@@ -228,11 +213,27 @@ class Calibration:
         #
         # Get continuum and line spws from configuration file
         #
-        self.cont_spws = self.config.get('Spectral Windows',
-                                         'Continuum')
+        self.cont_spws = self.config.get(
+            'Spectral Windows', 'Continuum')
         self.line_spws = self.config.get('Spectral Windows', 'Line')
         self.logger.info('Found continuum spws: %s', self.cont_spws)
         self.logger.info('Found line spws: %s', self.line_spws)
+        #
+        # Get feed orientation from listobs file
+        #
+        with open(listfile, 'r') as fin:
+            for line in fin:
+                if 'Corrs' in line:
+                    break
+            line = fin.readline()
+            if 'RR' in line or 'LL' in line:
+                self.orientation = 'circular'
+                self.corr = 'RR,RL,LR,LL'
+            else:
+                self.orientation = 'linear'
+                self.corr = 'XX,XY,YX,YY'
+        self.logger.info(
+            'Found observed correlations: %s', self.corr)
         #
         # get unique field names
         #
@@ -240,13 +241,13 @@ class Calibration:
         self.all_fields = casa.vishead(
             vis=self.vis, mode='get', hdkey='field')[0]
         self.all_fields = list(set(self.all_fields))
-        self.logger.info('Found fields: %s',
-                         ', '.join(self.all_fields))
+        self.logger.info(
+            'Found fields: %s', ', '.join(self.all_fields))
         #
         # Get primary calibrator fields if they are not in config
         #
-        config_pri_cals = self.config.get('Calibrators',
-                                          'Primary Calibrators')
+        config_pri_cals = self.config.get(
+            'Calibrators', 'Primary Calibrators')
         if config_pri_cals == '':
             self.pri_cals = []
             self.logger.info('Looking for primary calibrators...')
@@ -267,8 +268,8 @@ class Calibration:
         #
         # Get Secondary calibrator fields if they are not in config
         #
-        config_sec_cals = self.config.get('Calibrators',
-                                          'Secondary Calibrators')
+        config_sec_cals = self.config.get(
+            'Calibrators', 'Secondary Calibrators')
         if config_sec_cals == '':
             self.sec_cals = []
             self.logger.info('Looking for secondary calibrators...')
@@ -307,37 +308,35 @@ class Calibration:
             self.flux_cals = [field for field in
                               config_flux_cals.splitlines()
                               if field in self.all_fields]
-        #
-        # Check that flux calibrators are in primary calibrator list
-        #
-        for flux_cal in self.flux_cals:
-            if flux_cal not in self.pri_cals:
-                raise ValueError('Flux Calibrators must be a '
-                                 'Primary Calibrator')
         self.logger.info('Flux calibrators: %s',
                          ', '.join(self.flux_cals))
         #
-        # Get polarization calibrators from config
+        # Get polarization leakage calibrators from config
         #
-        config_pol_cals = self.config.get('Calibrators',
-                                          'Polarization Calibrators')
-        self.pol_cals = [field for field in
-                         config_pol_cals.splitlines()
-                         if field in self.all_fields]
+        config_pol_leak_cals = self.config.get(
+            'Calibrators', 'Polarization Leakage Calibrators')
+        self.pol_leak_cals = [
+            field for field in config_pol_leak_cals.splitlines()
+            if field in self.all_fields]
         #
-        # Check that polarization calibrator exists if we need it
+        # Get polarization angle calibrators from config
         #
-        if self.calpol and not self.pol_cals:
-            raise ValueError('No polarization calibrator found.')
+        config_pol_angle_cals = self.config.get(
+            'Calibrators', 'Polarization Leakage Calibrators')
+        self.pol_angle_cals = [
+            field for field in config_pol_angle_cals.splitlines()
+            if field in self.all_fields]
         #
-        # check that polarization calibrators are in primary list
+        # Check that polarization calibrators exists if we need it
         #
-        for pol_cal in self.pol_cals:
-            if pol_cal not in self.pri_cals:
-                raise ValueError('Polarization Calibrators must be a '
-                                 'Primary Calibrator')
-        self.logger.info('Polarization calibrators: %s',
-                         ', '.join(self.pol_cals))
+        if self.calpol:
+            if not self.pol_leak_cals:
+                raise ValueError(
+                    'No polarization leakge calibrators found')
+            if self.orientation == 'circular':
+                if not self.pol_angle_cals:
+                    raise ValueError(
+                        'No polarization angle calibrators found.')
         #
         # Get science targets
         #
@@ -363,7 +362,9 @@ class Calibration:
         casa.ms.close()
         casa.msmd.open(self.vis)
         fieldnames = casa.msmd.fieldnames()
-        scan_fields = [fieldnames[scans[str(i)]['0']['FieldId']] for i in range(len(scans))]
+        scan_fields = [
+            fieldnames[scans[str(i)]['0']['FieldId']]
+            for i in range(len(scans))]
         # get indicies of secondary calibrators
         cal_inds = np.array([
             i for i in range(len(scan_fields))
@@ -386,9 +387,6 @@ class Calibration:
                 if scan_fields[i] == sci_field])
             calib = None
             for ind in sci_inds:
-                # get closest calibrator
-                closest = scan_fields[
-                    cal_inds[np.argmin(np.abs(cal_inds - ind))]]
                 # get closest before calibrator
                 try:
                     closest_before = scan_fields[cal_inds[cal_inds < ind][
@@ -408,18 +406,21 @@ class Calibration:
                 # check that we found the same calibrator again.
                 #
                 if calib is not None:
-                    if ((closest_before == closest_after) and
-                        (closest_before == calib)):
+                    if (
+                            (closest_before == closest_after) and
+                            (closest_before == calib)):
                         # good
                         continue
-                    elif ((closest_before == closest_after) and
-                          (closest_before != calib)):
+                    elif (
+                            (closest_before == closest_after) and
+                            (closest_before != calib)):
                         # update
                         calib = closest_before
-                    elif (((closest_before is not None) and
-                           (closest_before == calib)) or
-                          ((closest_after is not None) and
-                           (closest_after == calib))):
+                    elif (
+                            ((closest_before is not None) and
+                             (closest_before == calib)) or
+                            ((closest_after is not None) and
+                             (closest_after == calib))):
                         # good
                         continue
                     else:
@@ -722,12 +723,13 @@ class Calibration:
         #
         # Generate the plots
         #
-        field = ','.join(self.pri_cals+self.sec_cals)
+        fields = list(set(
+            self.pri_cals + self.sec_cals + self.flux_cals +
+            self.pol_leak_cals + self.pol_angle_cals))
         self.logger.info('Generating plots for manual inspection...')
-        corr = self.config.get('Polarization', 'Polarization')
         plotnum = 0
         plots = []
-        for field in self.pri_cals+self.sec_cals:
+        for field in fields:
             #
             # Phase vs. Amplitude
             #
@@ -736,12 +738,12 @@ class Calibration:
             casa.plotms(vis=self.vis, xaxis='amp', yaxis='phase',
                         field=field, ydatacolumn=datacolumn,
                         iteraxis='spw', coloraxis='baseline',
-                        correlation=corr, title=title,
+                        title=title,
                         plotfile=plotfile, overwrite=True,
                         showgui=False, exprange='all')
-            plots.append({'field':field,
-                          'xaxis':'amp', 'yaxis':'phase',
-                          'avgtime':'', 'avgchannel':''})
+            plots.append({'field': field,
+                          'xaxis': 'amp', 'yaxis': 'phase',
+                          'avgtime': '', 'avgchannel': ''})
             plotnum += 1
             #
             # Amplitude vs UV-distance (in wavelength units)
@@ -751,12 +753,12 @@ class Calibration:
             casa.plotms(vis=self.vis, xaxis='uvwave', yaxis='amp',
                         field=field, ydatacolumn=datacolumn,
                         iteraxis='spw', coloraxis='baseline',
-                        correlation=corr, title=title,
+                        title=title,
                         plotfile=plotfile, overwrite=True,
                         showgui=False, exprange='all')
-            plots.append({'field':field,
-                          'xaxis':'uvwave', 'yaxis':'amp',
-                          'avgtime':'', 'avgchannel':''})
+            plots.append({'field': field,
+                          'xaxis': 'uvwave', 'yaxis': 'amp',
+                          'avgtime': '', 'avgchannel': ''})
             plotnum += 1
             #
             # Amplitude vs Time
@@ -766,12 +768,12 @@ class Calibration:
             casa.plotms(vis=self.vis, xaxis='time', yaxis='amp',
                         field=field, ydatacolumn=datacolumn,
                         iteraxis='spw', coloraxis='baseline',
-                        correlation=corr, avgchannel='1e7',
+                        avgchannel='1e7',
                         title=title, plotfile=plotfile,
                         overwrite=True, showgui=False, exprange='all')
-            plots.append({'field':field,
-                          'xaxis':'time', 'yaxis':'amp',
-                          'avgtime':'', 'avgchannel':'1e7'})
+            plots.append({'field': field,
+                          'xaxis': 'time', 'yaxis': 'amp',
+                          'avgtime': '', 'avgchannel': '1e7'})
             plotnum += 1
             #
             # Phase vs Time
@@ -781,12 +783,12 @@ class Calibration:
             casa.plotms(vis=self.vis, xaxis='time', yaxis='phase',
                         field=field, ydatacolumn=datacolumn,
                         iteraxis='spw', coloraxis='baseline',
-                        correlation=corr, avgchannel='1e7',
+                        avgchannel='1e7',
                         title=title, plotfile=plotfile,
                         overwrite=True, showgui=False, exprange='all')
-            plots.append({'field':field,
-                          'xaxis':'time', 'yaxis':'phase',
-                          'avgtime':'', 'avgchannel':'1e7'})
+            plots.append({'field': field,
+                          'xaxis': 'time', 'yaxis': 'phase',
+                          'avgtime': '', 'avgchannel': '1e7'})
             plotnum += 1
             #
             # Amplitude vs Channel
@@ -796,62 +798,34 @@ class Calibration:
             casa.plotms(vis=self.vis, xaxis='channel', yaxis='amp',
                         field=field, ydatacolumn=datacolumn,
                         iteraxis='spw', coloraxis='baseline',
-                        correlation=corr, avgtime='1e7',
+                        avgtime='1e7',
                         title=title, plotfile=plotfile,
                         overwrite=True, showgui=False, exprange='all')
-            plots.append({'field':field,
-                          'xaxis':'channel', 'yaxis':'amp',
-                          'avgtime':'1e7', 'avgchannel':''})
+            plots.append({'field': field,
+                          'xaxis': 'channel', 'yaxis': 'amp',
+                          'avgtime': '1e7', 'avgchannel': ''})
             plotnum += 1
             #
             # Phase vs Channel
-            # 
+            #
             title = 'PlotID: {0} Field: {1}'.format(plotnum, field)
             plotfile = 'calibrator_figures/{0}.png'.format(plotnum)
             casa.plotms(vis=self.vis, xaxis='channel', yaxis='phase',
                         field=field, ydatacolumn=datacolumn,
                         iteraxis='spw', coloraxis='baseline',
-                        correlation=corr, avgtime='1e7',
+                        avgtime='1e7',
                         title=title, plotfile=plotfile,
                         overwrite=True, showgui=False, exprange='all')
-            plots.append({'field':field,
-                          'xaxis':'channel', 'yaxis':'phase',
-                          'avgtime':'1e7', 'avgchannel':''})
+            plots.append({'field': field,
+                          'xaxis': 'channel', 'yaxis': 'phase',
+                          'avgtime': '1e7', 'avgchannel': ''})
             plotnum += 1
         self.logger.info('Done.')
         #
         # Generate PDF to display plots
         #
         self.logger.info('Generating PDF...')
-        num_plots = plotnum
-        iplot = 0
-        with open('calibrator_figures.tex', 'w') as fout:
-            fout.write(r'\documentclass{article}'+'\n')
-            fout.write(r'\usepackage{graphicx}'+'\n')
-            fout.write(r'\usepackage[margin=0.1cm]{geometry}'+'\n')
-            fout.write(r'\begin{document}'+'\n')
-            fout.write(r'\begin{figure}'+'\n')
-            fout.write(r'\centering'+'\n')
-            for plotnum in range(num_plots):
-                fnames = glob.glob(
-                    'calibrator_figures/{0}_*.png'.format(plotnum))
-                fnames = natural_sort(fnames)
-                for fname in fnames:
-                    if iplot > 0 and iplot % 6 == 0:
-                        fout.write(r'\end{figure}'+'\n')
-                        fout.write(r'\clearpage'+'\n')
-                        fout.write(r'\begin{figure}'+'\n')
-                        fout.write(r'\centering'+'\n')
-                    elif iplot > 0 and iplot % 2 == 0:
-                        fout.write(r'\end{figure}'+'\n')
-                        fout.write(r'\begin{figure}'+'\n')
-                        fout.write(r'\centering'+'\n')
-                    fout.write(r'\includegraphics[width=0.45\textwidth]'
-                               '{'+fname+'}\n')
-                    iplot += 1
-            fout.write(r'\end{figure}'+'\n')
-            fout.write(r'\end{document}'+'\n')
-        os.system('pdflatex -interaction=batchmode calibrator_figures.tex')
+        generate_pdf('calibrator_figures')
         self.logger.info('Done.')
         #
         # Save plot list to a pickle object
@@ -1060,8 +1034,7 @@ class Calibration:
 
     def calibration_tables(self):
         """
-        Generate gain, bandpass, and polarization leakage
-        calibration tables.
+        Generate bandpass and gain calibration tables.
 
         Inputs: Nothing
 
@@ -1711,31 +1684,7 @@ class Calibration:
         # Generate PDF of plotcal figures
         #
         self.logger.info('Generating tex document...')
-        iplot = 0
-        with open('plotcal_figures.tex','w') as fout:
-            fout.write(r'\documentclass{article}'+'\n')
-            fout.write(r'\usepackage{graphicx,subfig}'+'\n')
-            fout.write(r'\usepackage[margin=0.1cm]{geometry}'+'\n')
-            fout.write(r'\begin{document}'+'\n')
-            fout.write(r'\begin{figure}'+'\n')
-            fout.write(r'\centering'+'\n')
-            fnames = glob.glob('plotcal_figures/*.png')
-            fnames = natural_sort(fnames)
-            for fname in fnames:
-                if iplot > 0 and iplot % 6 == 0:
-                    fout.write(r'\end{figure}'+'\n')
-                    fout.write(r'\clearpage'+'\n')
-                    fout.write(r'\begin{figure}'+'\n')
-                    fout.write(r'\centering'+'\n')
-                elif iplot > 0 and iplot % 2 == 0:
-                    fout.write(r'\end{figure}'+'\n')
-                    fout.write(r'\begin{figure}'+'\n')
-                    fout.write(r'\centering'+'\n')
-                fout.write(r'\includegraphics[width=0.45\textwidth]{'+fname+'}'+'\n')
-                iplot += 1
-            fout.write(r'\end{figure}'+'\n')
-            fout.write(r'\end{document}'+'\n')
-        os.system('pdflatex -interaction=batchmode plotcal_figures.tex')
+        generate_pdf('plotcal_figures')
         self.logger.info('Done.')
 
     def calibrate_sci_targets(self):
@@ -1854,34 +1803,7 @@ class Calibration:
         # Generate PDF to display plots
         #
         self.logger.info('Generating tex document...')
-        num_plots = plotnum
-        iplot = 0
-        with open('science_figures.tex', 'w') as fout:
-            fout.write(r'\documentclass{article}'+'\n')
-            fout.write(r'\usepackage{graphicx}'+'\n')
-            fout.write(r'\usepackage[margin=0.1cm]{geometry}'+'\n')
-            fout.write(r'\begin{document}'+'\n')
-            fout.write(r'\begin{figure}'+'\n')
-            fout.write(r'\centering'+'\n')
-            for plotnum in range(num_plots):
-                fnames = glob.glob('science_figures/{0}_*.png'.
-                                   format(plotnum))
-                fnames = natural_sort(fnames)
-                for fname in fnames:
-                    if iplot > 0 and iplot % 6 == 0:
-                        fout.write(r'\end{figure}'+'\n')
-                        fout.write(r'\clearpage'+'\n')
-                        fout.write(r'\begin{figure}'+'\n')
-                        fout.write(r'\centering'+'\n')
-                    elif iplot > 0 and iplot % 2 == 0:
-                        fout.write(r'\end{figure}'+'\n')
-                        fout.write(r'\begin{figure}'+'\n')
-                        fout.write(r'\centering'+'\n')
-                    fout.write(r'\includegraphics[width=0.45\textwidth]{'+fname+'}\n')
-                    iplot += 1
-            fout.write(r'\end{figure}'+'\n')
-            fout.write(r'\end{document}'+'\n')
-        os.system('pdflatex -interaction=batchmode science_figures.tex')
+        generate_pdf('science_figures')
         self.logger.info('Done.')
         #
         # Save the plot list to the pickle object
