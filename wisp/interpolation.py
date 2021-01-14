@@ -30,7 +30,7 @@ from scipy.interpolate import interp1d
 from .utils import natural_sort
 
 
-def interpolate_channels(cal, casa, spws, chans):
+def interpolate_channels(cal, spws, chans):
     """
     Edit the measurement set to replace bad channels with
     interpolated values. Simple linear interpolation between
@@ -39,8 +39,6 @@ def interpolate_channels(cal, casa, spws, chans):
     Inputs:
         cal :: Calibration object
             The calibration object
-        casa :: CASA namespace
-            CASA namespace
         spws :: list of integers
             The spectral windows to use
         chans :: list of integers
@@ -52,8 +50,8 @@ def interpolate_channels(cal, casa, spws, chans):
     #
     # Open MS for modifications, and get list of data_desc_ids
     #
-    casa.ms.open(cal.vis, nomodify=False)
-    spwinfo = casa.ms.getspectralwindowinfo()
+    cal.casa.ms.open(cal.vis, nomodify=False)
+    spwinfo = cal.casa.ms.getspectralwindowinfo()
     datadescids = natural_sort(spwinfo.keys())
     for datadescid in datadescids:
         #
@@ -72,9 +70,9 @@ def interpolate_channels(cal, casa, spws, chans):
         #
         # Select data_desc_id, and initialize iterator
         #
-        casa.ms.selectinit(datadescid=int(datadescid))
-        casa.ms.iterinit()
-        casa.ms.iterorigin()
+        cal.casa.ms.selectinit(datadescid=int(datadescid))
+        cal.casa.ms.iterinit()
+        cal.casa.ms.iterorigin()
         #
         # Iterate over chunks
         #
@@ -82,7 +80,7 @@ def interpolate_channels(cal, casa, spws, chans):
             #
             # get data
             #
-            rec = casa.ms.getdata(["data"])
+            rec = cal.casa.ms.getdata(["data"])
             #
             # interpolate real part
             #
@@ -99,19 +97,19 @@ def interpolate_channels(cal, casa, spws, chans):
             # save and store
             #
             rec["data"] = real + 1.0j * imag
-            casa.ms.putdata(rec)
+            cal.casa.ms.putdata(rec)
             #
             # Get next chunk
             #
-            if not casa.ms.iternext():
+            if not cal.casa.ms.iternext():
                 break
         #
         # Terminate iterator and reset selection
         #
-        casa.ms.iterend()
-        casa.ms.selectinit(reset=True)
+        cal.casa.ms.iterend()
+        cal.casa.ms.selectinit(reset=True)
         cal.logger.info("Done.")
     #
     # Close measurement set
     #
-    casa.ms.close()
+    cal.casa.ms.close()

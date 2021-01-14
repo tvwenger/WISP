@@ -246,15 +246,13 @@ def auto_flag(cal, casa, fields, extend=False):
     cal.save_flags("autoflag")
 
 
-def manual_flag(cal, casa, fieldtype):
+def manual_flag(cal, fieldtype):
     """
     Interactively plot and flag.
 
     Inputs:
         cal :: Calibration object
             The calibration object
-        casa :: CASA namespace
-            CASA namespace
         fieldtype :: string
             Either 'calibrator' or 'science'
 
@@ -285,7 +283,7 @@ def manual_flag(cal, casa, fieldtype):
 
         # Flag some data
         if answer.lower() == "f":
-            flag(cal, casa, fieldtype)
+            flag(cal, fieldtype)
 
         # Stop flagging
         elif answer.lower() == "quit":
@@ -304,7 +302,7 @@ def manual_flag(cal, casa, fieldtype):
             title = "PlotID: {0} Field: {1}".format(
                 plotid, plots[plotid]["field"]
             )
-            casa.plotms(
+            cal.casa.plotms(
                 vis=cal.vis,
                 xaxis=plots[plotid]["xaxis"],
                 yaxis=plots[plotid]["yaxis"],
@@ -322,15 +320,13 @@ def manual_flag(cal, casa, fieldtype):
     cal.save_flags("manualflag")
 
 
-def flag(cal, casa, fieldtype):
+def flag(cal, fieldtype):
     """
     Interactively flag some data.
 
     Inputs:
         cal :: Calibration object
             The calibration object
-        casa :: CASA namespace
-            CASA namespace
         fieldtype :: string
             Either 'calibrator' or 'science'
 
@@ -434,7 +430,7 @@ def flag(cal, casa, fieldtype):
                     fout.write("{0}: {1}".format(cur_time, cmd) + "\n")
 
             # Execute
-            casa.flagdata(
+            cal.casa.flagdata(
                 vis=cal.vis,
                 mode="list",
                 flagbackup=False,

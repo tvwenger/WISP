@@ -27,7 +27,7 @@ Trey V. Wenger August 2019 - V2.1
 import os
 
 
-def crosshand_delays_table(cal, casa):
+def crosshand_delays_table(cal):
     """
     Derive cross-hand delay calibration table using a bright,
     polarized calibrator.
@@ -35,29 +35,21 @@ def crosshand_delays_table(cal, casa):
     Inputs:
         cal :: Calibration object
             The calibration object
-        casa :: CASA namespace
-            CASA namespace
 
     Returns: Nothing
     """
     field = ",".join(cal.pol_leak_cals)
-    initial_tables = cal.initial_tables()
+    gaintables, gainfields, spwmaps = cal.gaintables("crosshand_delays")
 
-    caltable = "crosshand_delays.Kcal"
-    gaintables = initial_tables + [
-        cal.table["delays"],
-        cal.table["phase_int"],
-        cal.table["apcal_scan"],
-    ]
     cal.logger.info(
         "Calculating cross-hand delay calibration table for polarized "
         "leakage calibrators..."
     )
-    if os.path.isdir(caltable):
-        casa.rmtables(caltable)
-    casa.gaincal(
+    if os.path.isdir(cal.tables["crosshand_delays"]):
+        cal.casa.rmtables(cal.tables["crosshand_delays"])
+    cal.casa.gaincal(
         vis=cal.vis,
-        caltable=caltable,
+        caltable=cal.tables["crosshand_delays"],
         field=field,
         refant=cal.refant,
         solint="inf",
@@ -66,47 +58,37 @@ def crosshand_delays_table(cal, casa):
         gaintype="KCROSS",
         parang=cal.calpol,
         gaintable=gaintables,
+        gainfield=gainfields,
+        spwmap=spwmaps,
     )
-    if not os.path.isdir(caltable):
+    if not os.path.isdir(cal.table["crosshan_delays"]):
         cal.logger.critical("Problem with cross-hand delay calibration")
         raise ValueError("Problem with cross-hand delay calibration!")
-    cal.tables["crosshand_delays_scan_spw"] = caltable
     cal.logger.info("Done.")
 
 
-def polleak_table(cal, casa):
+def polleak_table(cal):
     """
     Derive polarization leakage calibration table.
 
     Inputs:
         cal :: Calibration object
             The calibration object
-        casa :: CASA namespace
-            CASA namespace
 
     Returns: Nothing
     """
     field = ",".join(cal.pol_leak_cals)
-    initial_tables = cal.initial_tables()
+    gaintables, gainfields, spwmaps = cal.gaintables("polleak")
 
-    caltable = "polleak_scan.Dcal0"
-    gaintables = initial_tables + [
-        cal.tables["delays"],
-        cal.tables["bandpass"],
-        cal.tables["phase_int"],
-        cal.tables["apcal_scan"],
-    ]
-    if "crosshand_delays_scan_spw" in cal.tables:
-        gaintables = gaintables + [cal.tables["crosshand_delays_scan_spw"]]
     cal.logger.info(
         "Calculating the polarization leakage calibration table on scan "
         "timescales for polarization leakage calibrators ..."
     )
-    if os.path.isdir(caltable):
-        casa.rmtables(caltable)
-    casa.polcal(
+    if os.path.isdir(cal.tables["polleak"]):
+        cal.casa.rmtables(cal.tables["polleak"])
+    cal.casa.polcal(
         vis=cal.vis,
-        caltable=caltable,
+        caltable=cal.tables["polleak"],
         field=field,
         solint="inf",
         combine="scan",
@@ -115,48 +97,37 @@ def polleak_table(cal, casa):
         minsnr=2.0,
         minblperant=1,
         gaintable=gaintables,
+        gainfield=gainfields,
+        spwmap=spwmaps,
     )
-    if not os.path.isdir(caltable):
+    if not os.path.isdir(cal.tables["polleak"]):
         cal.logger.critical("Problem with polarization leakage calibration")
         raise ValueError("Problem with polarization leakage calibration")
-    cal.tables["polleak_scan"] = caltable
     cal.logger.info("Done.")
 
 
-def polangle_table(cal, casa):
+def polangle_table(cal):
     """
     Derive polarization angle calibration table.
 
     Inputs:
         cal :: Calibration object
             The calibration object
-        casa :: CASA namespace
-            CASA namespace
 
     Returns: Nothing
     """
     field = ",".join(cal.pol_angle_cals)
-    initial_tables = cal.initial_tables()
+    gaintables, gainfields, spwmaps = cal.gaintables("polangle")
 
-    caltable = "polangle_scan.Xcal"
-    gaintables = initial_tables + [
-        cal.tables["delays"],
-        cal.tables["bandpass"],
-        cal.tables["phase_int"],
-        cal.tables["apcal_scan"],
-    ]
-    if "crosshand_delays_scan_spw" in cal.tables:
-        gaintables = gaintables + [cal.tables["crosshand_delays_scan_spw"]]
-    gaintables = gaintables + [cal.tables["polleak_scan"]]
     cal.logger.info(
         "Calculating the polarization angle calibration table on scan "
         "timescales for polarization angle calibrators ..."
     )
-    if os.path.isdir(caltable):
-        casa.rmtables(caltable)
-    casa.polcal(
+    if os.path.isdir(cal.tables["polangle"]):
+        cal.casa.rmtables(cal.tables["polangle"])
+    cal.casa.polcal(
         vis=cal.vis,
-        caltable=caltable,
+        caltable=cal.tables["polangle"],
         field=field,
         solint="inf",
         combine="scan",
@@ -165,9 +136,10 @@ def polangle_table(cal, casa):
         minsnr=2.0,
         minblperant=1,
         gaintable=gaintables,
+        gainfield=gainfields,
+        spwmap=spwmaps,
     )
-    if not os.path.isdir(caltable):
+    if not os.path.isdir(cal.tables["polangle"]):
         cal.logger.critical("Problem with polarization angle calibration")
         raise ValueError("Problem with polarization angle calibration")
-    cal.tables["polangle_scan"] = caltable
     cal.logger.info("Done.")

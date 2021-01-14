@@ -167,7 +167,7 @@ def prebandpass_primary_tables(cal, use_smodel=False):
     Returns: Nothing
     """
     fields = cal.pri_cals
-    initial_tables = cal.initial_tables()
+    gaintables, gainfields, spwmaps = cal.gaintables("delays")
 
     # Delay calibration
     cal.logger.info(
@@ -175,7 +175,6 @@ def prebandpass_primary_tables(cal, use_smodel=False):
     )
     if os.path.isdir(cal.tables["delays"]):
         cal.casa.rmtables(cal.tables["delays"])
-    gaintables = initial_tables
     for field in fields:
         append = os.path.exists(cal.tables["delays"])
         smodel = None
@@ -190,6 +189,8 @@ def prebandpass_primary_tables(cal, use_smodel=False):
             minblperant=1,
             parang=cal.calpol,
             gaintable=gaintables,
+            gainfield=gainfields,
+            spwmap=spwmaps,
             append=append,
             smodel=smodel,
         )
@@ -198,13 +199,13 @@ def prebandpass_primary_tables(cal, use_smodel=False):
         raise ValueError("Problem with delay calibration!")
 
     # Integration timescale phase calibration
+    gaintables, gainfields, spwmaps = cal.gaintables("phase_int0")
     cal.logger.info(
         "Calculating phase calibration table on integration timescales for "
         "primary calibrators..."
     )
     if os.path.isdir(cal.tables["phase_int0"]):
         cal.casa.rmtables(cal.tables["phase_int0"])
-    gaintables = initial_tables + [cal.tables["delays"]]
     for field in fields:
         append = os.path.exists(cal.tables["phase_int0"])
         smodel = None
@@ -222,6 +223,8 @@ def prebandpass_primary_tables(cal, use_smodel=False):
             minblperant=1,
             parang=cal.calpol,
             gaintable=gaintables,
+            gainfield=gainfields,
+            spwmap=spwmaps,
             append=append,
             smodel=smodel,
         )
@@ -248,9 +251,8 @@ def bandpass_table(cal, use_smodel=False):
     Returns: Nothing
     """
     fields = cal.pri_cals
-    initial_tables = cal.initial_tables()
+    gaintables, gainfields, spwmaps = cal.gaintables("bandpass")
 
-    gaintables = initial_tables + [cal.table["delays"], cal.table["phase_int"]]
     cal.logger.info(
         "Calculating bandpass calibration table for primary calibrators..."
     )
@@ -273,6 +275,8 @@ def bandpass_table(cal, use_smodel=False):
             minblperant=1,
             parang=cal.calpol,
             gaintable=gaintables,
+            gainfield=gainfields,
+            spwmap=spwmaps,
             append=append,
             smodel=smodel,
         )
@@ -296,13 +300,9 @@ def gain_tables(cal, use_smodel=False):
     Returns: Nothing
     """
     fields = cal.calibrators
-    initial_tables = cal.initial_tables()
 
     # integration timescale phase calibration
-    gaintables = initial_tables + [
-        cal.tables["delays"],
-        cal.tables["bandpass"],
-    ]
+    gaintables, gainfields, spwmaps = cal.gaintables("phase_int1")
     cal.logger.info(
         "Re-calculating the phase calibration table on integration timescales "
         "for all calibrators..."
@@ -326,6 +326,8 @@ def gain_tables(cal, use_smodel=False):
             minblperant=1,
             parang=cal.calpol,
             gaintable=gaintables,
+            gainfield=gainfields,
+            spwmap=spwmaps,
             append=append,
             smodel=smodel,
         )
@@ -339,10 +341,7 @@ def gain_tables(cal, use_smodel=False):
     cal.logger.info("Done.")
 
     # scan timescale phase calibration
-    gaintables = initial_tables + [
-        cal.tables["delays"],
-        cal.tables["bandpass"],
-    ]
+    gaintables, gainfields, spwmaps = cal.gaintables("phase_scan")
     cal.logger.info(
         "Calculating the phase calibration table on "
         "scan timescales for all calibrators..."
@@ -366,6 +365,8 @@ def gain_tables(cal, use_smodel=False):
             minblperant=1,
             parang=cal.calpol,
             gaintable=gaintables,
+            gainfield=gainfields,
+            spwmap=spwmaps,
             append=append,
             smodel=smodel,
         )
@@ -375,11 +376,7 @@ def gain_tables(cal, use_smodel=False):
     cal.logger.info("Done.")
 
     # scan timescale amplitude corrections
-    gaintables = initial_tables + [
-        cal.delays,
-        cal.bandpass,
-        cal.phase_int,
-    ]
+    gaintables, gainfields, spwmaps = cal.gaintables("amplitude")
     cal.logger.info(
         "Calculating the amplitude calibration table "
         "on scan timescales for all calibrators..."
@@ -402,6 +399,8 @@ def gain_tables(cal, use_smodel=False):
             minblperant=1,
             parang=cal.calpol,
             gaintable=gaintables,
+            gainfield=gainfields,
+            spwmap=spwmaps,
             append=append,
             smodel=smodel,
         )

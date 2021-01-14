@@ -31,15 +31,13 @@ import pickle
 from .utils import generate_pdf
 
 
-def plotcal_plots(cal, casa):
+def plotcal_plots(cal):
     """
     Generate diagnostic plots for calibration tables.
 
     Inputs:
         cal :: Calibration object
             The calibration object
-        casa :: CASA namespace
-            CASA namespace
 
     Returns: Nothing
     """
@@ -49,74 +47,149 @@ def plotcal_plots(cal, casa):
     for fname in fnames:
         os.remove(fname)
 
+    # Delay
+    field = ",".join(cal.pri_cals)
+    cal.casa.plotms(
+        vis=cal.tables["delays"],
+        xaxis="frequency",
+        yaxis="delay",
+        field=field,
+        iteraxis="antenna",
+        coloraxis="corr",
+        title="Delays",
+        plotfile="plotcal_figures/0_delay.png",
+        overwrite=True,
+        showgui=False,
+        exprange="all",
+    )
+
     # Bandpass
     field = ",".join(cal.pri_cals)
-    casa.plotms(
-        vis=cal.bandpass,
+    cal.casa.plotms(
+        vis=cal.tables["bandpass"],
         xaxis="channel",
         yaxis="amplitude",
         field=field,
         iteraxis="spw",
         coloraxis="antenna1",
-        title=cal.bandpass.replace("_", r"\_"),
-        plotfile="plotcal_figures/0_bandpass.png",
+        title="Bandpass",
+        plotfile="plotcal_figures/1_bandpass.png",
         overwrite=True,
         showgui=False,
         exprange="all",
     )
 
     # Integration phase
-    field = list(
-        set(
-            cal.pri_cals
-            + cal.sec_cals
-            + cal.pol_leak_cals
-            + cal.pol_angle_cals
-        )
-    )
-    casa.plotms(
-        vis=cal.phase_int,
+    field = ",".join(cal.calibrators)
+    cal.casa.plotms(
+        vis=cal.tables["phase_int1"],
         xaxis="time",
         yaxis="phase",
         field=field,
         iteraxis="spw",
         coloraxis="antenna1",
-        title=cal.phase_int.replace("_", r"\_"),
-        plotfile="plotcal_figures/1_phase_int.png",
+        title="Integration Phase",
+        plotfile="plotcal_figures/2_phase_int.png",
         overwrite=True,
         showgui=False,
         exprange="all",
     )
 
     # Scan phase
-    casa.plotms(
-        vis=cal.phase_scan,
+    cal.casa.plotms(
+        vis=cal.tables["phase_scan"],
         xaxis="time",
         yaxis="phase",
         field=field,
         iteraxis="spw",
         coloraxis="antenna1",
-        title=cal.phase_scan.replace("_", r"\_"),
-        plotfile="plotcal_figures/2_phase_scan.png",
+        title="Scan Phase",
+        plotfile="plotcal_figures/3_phase_scan.png",
         overwrite=True,
         showgui=False,
         exprange="all",
     )
 
     # Amplitude scan
-    casa.plotms(
-        vis=cal.apcal_scan,
+    cal.casa.plotms(
+        vis=cal.tables["amplitude"],
         xaxis="time",
         yaxis="amplitude",
         field=field,
         iteraxis="spw",
         coloraxis="antenna1",
-        title=cal.apcal_scan.replace("_", r"\_"),
-        plotfile="plotcal_figures/3_apcal_scan.png",
+        title="Amplitude",
+        plotfile="plotcal_figures/4_amplitude.png",
         overwrite=True,
         showgui=False,
         exprange="all",
     )
+
+    if cal.calpol:
+        # Crosshand delays
+        if os.path.exists(cal.tables["crosshand_delays"]):
+            field = ",".join(cal.pol_leak_cals)
+            cal.casa.plotms(
+                vis=cal.tables["crosshand_delays"],
+                xaxis="frequency",
+                yaxis="delay",
+                field=field,
+                iteraxis="antenna",
+                coloraxis="correlation",
+                title="Cross-hand Delays",
+                plotfile="plotcal_figures/5_crosshand_delay.png",
+                overwrite=True,
+                showgui=False,
+                exprange="all",
+            )
+
+        # Polarization leakge amplitude
+        field = ",".join(cal.pol_leak_cals)
+        cal.casa.plotms(
+            vis=cal.tables["polleak"],
+            xaxis="channel",
+            yaxis="amp",
+            field=field,
+            iteraxis="spw",
+            coloraxis="antenna1",
+            title="Polarization Leakage Amplitude",
+            plotfile="plotcal_figures/6_polleak_amp.png",
+            overwrite=True,
+            showgui=False,
+            exprange="all",
+        )
+
+        # Polarization leakage phase
+        field = ",".join(cal.pol_leak_cals)
+        cal.casa.plotms(
+            vis=cal.tables["polleak"],
+            xaxis="freq",
+            yaxis="phase",
+            field=field,
+            iteraxis="spw",
+            coloraxis="antenna1",
+            title="Polarization Leakage Phase",
+            plotfile="plotcal_figures/7_polleak_phase.png",
+            overwrite=True,
+            showgui=False,
+            exprange="all",
+        )
+
+        # Polarization angle
+        if os.path.exists(cal.tables["polangle"]):
+            field = ",".join(cal.pol_angle_cals)
+            cal.casa.plotms(
+                vis=cal.tables["polangle"],
+                xaxis="frequency",
+                yaxis="phase",
+                field=field,
+                coloraxis="correlation",
+                title="Polarization Angle",
+                plotfile="plotcal_figures/8_polangle_phase.png",
+                overwrite=True,
+                showgui=False,
+                exprange="all",
+            )
 
     # Generate PDF of plotcal figures
     cal.logger.info("Generating PDF...")
@@ -124,15 +197,13 @@ def plotcal_plots(cal, casa):
     cal.logger.info("Done.")
 
 
-def visibility_plots(cal, casa, fieldtype):
+def visibility_plots(cal, fieldtype):
     """
     Generate diagnostic visiblity plots for calibrators.
 
     Inputs:
         cal :: Calibration object
             The calibration object
-        casa :: CASA namespace
-            CASA namespace
         fieldtype :: string
             Either 'calibrator' or 'science'
 
@@ -169,7 +240,7 @@ def visibility_plots(cal, casa, fieldtype):
             # Phase vs. Amplitude
             title = "PlotID: {0} Field: {1}".format(len(plots), field)
             plotfile = "{0}/{1}.png".format(location, len(plots))
-            casa.plotms(
+            cal.casa.plotms(
                 vis=cal.vis,
                 xaxis="amp",
                 yaxis="phase",
@@ -196,7 +267,7 @@ def visibility_plots(cal, casa, fieldtype):
         # Amplitude vs UV-distance (in wavelength units)
         title = "PlotID: {0} Field: {1}".format(len(plots), field)
         plotfile = "{0}/{1}.png".format(location, len(plots))
-        casa.plotms(
+        cal.casa.plotms(
             vis=cal.vis,
             xaxis="uvwave",
             yaxis="amp",
@@ -223,7 +294,7 @@ def visibility_plots(cal, casa, fieldtype):
         # Amplitude vs Time
         title = "PlotID: {0} Field: {1}".format(len(plots), field)
         plotfile = "{0}/{1}.png".format(location, len(plots))
-        casa.plotms(
+        cal.casa.plotms(
             vis=cal.vis,
             xaxis="time",
             yaxis="amp",
@@ -251,7 +322,7 @@ def visibility_plots(cal, casa, fieldtype):
         # Amplitude vs Channel
         title = "PlotID: {0} Field: {1}".format(len(plots), field)
         plotfile = "{0}/{1}.png".format(location, len(plots))
-        casa.plotms(
+        cal.casa.plotms(
             vis=cal.vis,
             xaxis="channel",
             yaxis="amp",
@@ -280,7 +351,7 @@ def visibility_plots(cal, casa, fieldtype):
             # Phase vs Time
             title = "PlotID: {0} Field: {1}".format(len(plots), field)
             plotfile = "{0}/{1}.png".format(location, len(plots))
-            casa.plotms(
+            cal.casa.plotms(
                 vis=cal.vis,
                 xaxis="time",
                 yaxis="phase",
@@ -308,7 +379,7 @@ def visibility_plots(cal, casa, fieldtype):
             # Phase vs Channel
             title = "PlotID: {0} Field: {1}".format(len(plots), field)
             plotfile = "{0}/{1}.png".format(location, len(plots))
-            casa.plotms(
+            cal.casa.plotms(
                 vis=cal.vis,
                 xaxis="channel",
                 yaxis="phase",

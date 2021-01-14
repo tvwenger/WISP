@@ -248,7 +248,9 @@ class Calibration:
 
         # Determine which secondary calibrator to user for each
         # science target
-        print("Identifying secondary calibrators for each science target...")
+        self.logger.info(
+            "Identifying secondary calibrators for each science target..."
+        )
         self.science_calibrators = assign_secondary_calibrators(self, casa)
 
         # create directories for figures
