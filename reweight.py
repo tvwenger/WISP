@@ -37,9 +37,10 @@ import ConfigParser
 __version__ = "1.0"
 
 # load logging configuration file
-logging.config.fileConfig('logging.conf')
+logging.config.fileConfig("logging.conf")
 
-def setup(vis='',config=None):
+
+def setup(vis="", config=None):
     """
     Perform setup tasks: find line and continuum spectral windows
                          get clean parameters
@@ -69,22 +70,25 @@ def setup(vis='',config=None):
     #
     if config is None:
         logger.critical("Error: Need to supply a config")
-        raise ValueError("Config is None") 
+        raise ValueError("Config is None")
     #
     # Get continuum and line spws from configuration file
     #
-    my_cont_spws = config.get("Spectral Windows","Continuum")
-    my_line_spws = config.get("Spectral Windows","Line")
+    my_cont_spws = config.get("Spectral Windows", "Continuum")
+    my_line_spws = config.get("Spectral Windows", "Line")
     logger.info("Found continuum spws: {0}".format(my_cont_spws))
     logger.info("Found line spws: {0}".format(my_line_spws))
     #
     # Get Unflag parameters from configuration file
     #
-    chan_offset = np.array([int(c) for c in config.get("Unflag","offset").split(',')])
-    chan_width = config.getint("Unflag","width")
-    return (my_cont_spws,my_line_spws,chan_offset,chan_width)
+    chan_offset = np.array(
+        [int(c) for c in config.get("Unflag", "offset").split(",")]
+    )
+    chan_width = config.getint("Unflag", "width")
+    return (my_cont_spws, my_line_spws, chan_offset, chan_width)
 
-def main(field,vis='',config_file=''):
+
+def main(field, vis="", config_file=""):
     """
     Re-compute data weights using STATWT. Use "unflag" parameters
     from configuration file to exclude spectral lines.
@@ -107,8 +111,8 @@ def main(field,vis='',config_file=''):
     # Check inputs
     #
     if not os.path.exists(config_file):
-        logger.critical('Configuration file not found')
-        raise ValueError('Configuration file not found!')
+        logger.critical("Configuration file not found")
+        raise ValueError("Configuration file not found!")
     #
     # load configuration file
     #
@@ -119,8 +123,9 @@ def main(field,vis='',config_file=''):
     #
     # initial setup
     #
-    my_cont_spws,my_line_spws,chan_offset,chan_width = \
-      setup(vis=vis,config=config)
+    my_cont_spws, my_line_spws, chan_offset, chan_width = setup(
+        vis=vis, config=config
+    )
     #
     # Get spw we are looking at
     #
@@ -128,11 +133,13 @@ def main(field,vis='',config_file=''):
     print("<CR> to indicate no visible spectral line")
     spw = raw_input("> ")
     if len(spw.strip()) > 0:
-        spw_ind = my_line_spws.split(',').index(spw)
+        spw_ind = my_line_spws.split(",").index(spw)
         #
         # Get channel of spectral line in highest-freq spectral window
         #
-        print("What is the channel of the spectral line center in that spectral wnidow?")
+        print(
+            "What is the channel of the spectral line center in that spectral wnidow?"
+        )
         chan = int(raw_input("> "))
         #
         # Chan offset is relative to last spw, so we need to adjust
@@ -143,34 +150,57 @@ def main(field,vis='',config_file=''):
         # Backup flags
         #
         logger.info("Saving flag state...")
-        casa.flagmanager(vis=vis,mode='save',versionname='flags_{0}'.format(time.strftime('%Y%m%d%H%M%S',time.gmtime())))
+        casa.flagmanager(
+            vis=vis,
+            mode="save",
+            versionname="flags_{0}".format(
+                time.strftime("%Y%m%d%H%M%S", time.gmtime())
+            ),
+        )
         logger.info("Done.")
         #
         # Run statwt on continuum spws
         #
         logger.info("Running statwt on continuum spws")
-        casa.statwt(vis=vis,spw=my_cont_spws,datacolumn='data',flagbackup=False)
+        casa.statwt(
+            vis=vis, spw=my_cont_spws, datacolumn="data", flagbackup=False
+        )
         logger.info("Done.")
         #
         # Run statwt on line spws
         #
-        for spw, offset in zip(my_line_spws.split(','),chan_offset):
-            start = chan + int(offset) - int(chan_width/2)
-            end = chan + int(offset) + int(chan_width/2)
-            logger.info("Running statwt on spw {0} excluding channels {1} to {2}".format(spw,start,end))
-            casa.statwt(vis=vis,spw=spw,datacolumn='data',flagbackup=False,
-                        excludechans='{0}:{1}~{2}'.format(spw,start,end))
+        for spw, offset in zip(my_line_spws.split(","), chan_offset):
+            start = chan + int(offset) - int(chan_width / 2)
+            end = chan + int(offset) + int(chan_width / 2)
+            logger.info(
+                "Running statwt on spw {0} excluding channels {1} to {2}".format(
+                    spw, start, end
+                )
+            )
+            casa.statwt(
+                vis=vis,
+                spw=spw,
+                datacolumn="data",
+                flagbackup=False,
+                excludechans="{0}:{1}~{2}".format(spw, start, end),
+            )
             logger.info("Done.")
     else:
         #
         # Backup flags
         #
         logger.info("Saving flag state...")
-        casa.flagmanager(vis=vis,mode='save',versionname='flags_{0}'.format(time.strftime('%Y%m%d%H%M%S',time.gmtime())))
+        casa.flagmanager(
+            vis=vis,
+            mode="save",
+            versionname="flags_{0}".format(
+                time.strftime("%Y%m%d%H%M%S", time.gmtime())
+            ),
+        )
         logger.info("Done.")
         #
         # Execute statwt on all spws
         #
         logger.info("Running statwt on all spws")
-        casa.statwt(vis=vis,datacolumn='data',flagbackup=False)
+        casa.statwt(vis=vis, datacolumn="data", flagbackup=False)
         logger.info("Done.")

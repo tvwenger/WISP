@@ -47,17 +47,14 @@ def interpolate_channels(cal, spws, chans):
     Returns: Nothing
     """
     bad_chans = np.array(chans)
-    #
+
     # Open MS for modifications, and get list of data_desc_ids
-    #
     cal.casa.ms.open(cal.vis, nomodify=False)
     spwinfo = cal.casa.ms.getspectralwindowinfo()
     datadescids = natural_sort(spwinfo.keys())
     for datadescid in datadescids:
-        #
         # Check that the spw associated with this data_desc_id
         # is one that needs interpolated
-        #
         if spwinfo[datadescid]["SpectralWindowId"] not in spws:
             continue
         cal.logger.info(
@@ -67,49 +64,40 @@ def interpolate_channels(cal, spws, chans):
         chans = np.arange(nchans)
         mask = np.zeros(nchans, dtype=bool)
         mask[bad_chans] = True
-        #
+
         # Select data_desc_id, and initialize iterator
-        #
         cal.casa.ms.selectinit(datadescid=int(datadescid))
         cal.casa.ms.iterinit()
         cal.casa.ms.iterorigin()
-        #
+
         # Iterate over chunks
-        #
         while True:
-            #
+
             # get data
-            #
             rec = cal.casa.ms.getdata(["data"])
-            #
+
             # interpolate real part
-            #
             real = np.real(rec["data"])
             real_interp = interp1d(chans[~mask], real[:, ~mask, :], axis=1)
             real[:, mask, :] = real_interp(chans[mask])
-            #
+
             # interpolate phase
-            #
             imag = np.imag(rec["data"])
             imag_interp = interp1d(chans[~mask], imag[:, ~mask, :], axis=1)
             imag[:, mask, :] = imag_interp(chans[mask])
-            #
+
             # save and store
-            #
             rec["data"] = real + 1.0j * imag
             cal.casa.ms.putdata(rec)
-            #
+
             # Get next chunk
-            #
             if not cal.casa.ms.iternext():
                 break
-        #
+
         # Terminate iterator and reset selection
-        #
         cal.casa.ms.iterend()
         cal.casa.ms.selectinit(reset=True)
         cal.logger.info("Done.")
-    #
+
     # Close measurement set
-    #
     cal.casa.ms.close()

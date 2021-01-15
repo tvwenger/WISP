@@ -52,7 +52,6 @@ def calibrate(
     opacity=True,
     calpol=False,
     calwt=True,
-    statwt=False,
     auto="",
 ):
     """
@@ -84,8 +83,6 @@ def calibrate(
             if True, calibrate polarization
         calwt :: boolean
             if True, apply calibration weights to data
-        statwt :: boolean
-            if True, rederive statistical weights in split measurement sets
         auto :: string
             comma separated string of menu options to automatically
             perform
@@ -124,7 +121,6 @@ def calibrate(
         opacity=opacity,
         calpol=calpol,
         calwt=calwt,
-        statwt=statwt,
     )
 
     # Prompt the user with a menu, or automatically execute

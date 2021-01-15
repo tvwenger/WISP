@@ -46,6 +46,8 @@ Trey V. Wenger August 2019 - V2.1
 import os
 import time
 
+import numpy as np
+
 from .calsetup import (
     get_calibrators,
     assign_secondary_calibrators,
@@ -88,7 +90,6 @@ class Calibration:
         opacity=True,
         calpol=False,
         calwt=True,
-        statwt=False,
     ):
         """
         Create a new Calibration object. Get reference antenna,
@@ -126,8 +127,6 @@ class Calibration:
                 if True, calibrate polarization
             calwt :: boolean
                 if True, apply calibration weights to data
-            statwt :: boolean
-                if True, rederive statistical weights in split measurement sets
 
         Returns: calibration
             calibration :: calibration.Calibration object
@@ -145,7 +144,6 @@ class Calibration:
         self.opacity = opacity
         self.calpol = calpol
         self.calwt = calwt
-        self.statwt = statwt
         self.logger.info("Initializing Calibration object.")
 
         # Initialize calibration tables
@@ -173,10 +171,20 @@ class Calibration:
             self.logger.info("Done.")
 
         # Get continuum and line spws from configuration file
-        self.cont_spws = self.config.get("Spectral Windows", "Continuum")
-        self.line_spws = self.config.get("Spectral Windows", "Line")
-        self.logger.info("Found continuum spws: %s", self.cont_spws)
-        self.logger.info("Found line spws: %s", self.line_spws)
+        self.cont_spws = (
+            self.config.get("Spectral Windows", "Continuum").strip().split(",")
+        )
+        self.cont_spws = [
+            spw.strip() for spw in self.cont_spws if spw.strip() != ""
+        ]
+        self.line_spws = (
+            self.config.get("Spectral Windows", "Line").strip().split(",")
+        )
+        self.line_spws = [
+            spw.strip() for spw in self.line_spws if spw.strip() != ""
+        ]
+        self.logger.info("Found continuum spws: %s", ",".join(self.cont_spws))
+        self.logger.info("Found line spws: %s", ",".join(self.line_spws))
 
         # Get feed orientation from listobs file
         with open(listfile, "r") as fin:
@@ -336,7 +344,16 @@ class Calibration:
         # add delays
         gaintables.append(self.tables["delays"])
         gainfields.append("")
-        spwmaps.append([])
+        # get spw number in calibration table
+        self.casa.tb.open(self.tables["delays"])
+        cal_spws = np.unique(self.casa.tb.getcol("SPECTRAL_WINDOW_ID"))
+        self.casa.tb.close()
+        if len(cal_spws) > 1:
+            raise ValueError(
+                "Delays calibration table has more than one spectral window"
+            )
+        num_spws = len(self.cont_spws + self.line_spws)
+        spwmaps.append([[cal_spws[0]] * num_spws])
         if step == "phase_int0":
             return gaintables, gainfields, spwmaps
 
@@ -391,10 +408,17 @@ class Calibration:
         if self.calpol and os.path.exists(self.tables["crosshand_delays"]):
             gaintables.append(self.tables["crosshand_delays"])
             gainfields.append("")
-            num_spws = len(self.cont_spws.split(",")) + len(
-                self.line_spws.split(",")
-            )
-            spwmaps.append([0] * num_spws)
+            # get spw number in calibration table
+            self.casa.tb.open(self.tables["crosshand_delays"])
+            cal_spws = np.unique(self.casa.tb.getcol("SPECTRAL_WINDOW_ID"))
+            self.casa.tb.close()
+            if len(cal_spws) > 1:
+                raise ValueError(
+                    "Cross-hand delays calibration table has more than one "
+                    "spectral window"
+                )
+            num_spws = len(self.cont_spws + self.line_spws)
+            spwmaps.append([[cal_spws[0]] * num_spws])
         if step == "polleak":
             return gaintables, gainfields, spwmaps
 
@@ -517,7 +541,7 @@ def apply_calibration(cal, fieldtype):
             gaintable=gaintables,
             gainfield=gainfields,
             spwmap=spwmaps,
-            parang=cal.polcal,
+            parang=cal.calpol,
             flagbackup=False,
         )
     cal.save_flags("calibrate")

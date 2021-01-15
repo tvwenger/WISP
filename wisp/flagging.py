@@ -122,9 +122,7 @@ def preliminary_flagging(cal):
             ";".join(badchans),
         )
         badchans = ";".join(badchans)
-        line_spws = ",".join(
-            [i + ":" + badchans for i in cal.line_spws.split(",")]
-        )
+        line_spws = ",".join([str(i) + ":" + badchans for i in cal.line_spws])
         cal.casa.flagdata(
             vis=cal.vis,
             mode="manual",
@@ -143,9 +141,7 @@ def preliminary_flagging(cal):
             ";".join(badchans),
         )
         badchans = ";".join(badchans)
-        cont_spws = ",".join(
-            [i + ":" + badchans for i in cal.cont_spws.split(",")]
-        )
+        cont_spws = ",".join([str(i) + ":" + badchans for i in cal.cont_spws])
         cal.casa.flagdata(
             vis=cal.vis,
             mode="manual",
@@ -164,7 +160,7 @@ def preliminary_flagging(cal):
             "configuration file: %s",
             ";".join(badchans),
         )
-        line_spws = [int(i) for i in cal.line_spws.split(",")]
+        line_spws = [int(i) for i in cal.line_spws]
         badchans = np.array([int(i) for i in badchans])
         cal.interpolate_channels(line_spws, badchans)
         cal.logger.info("Done.")
@@ -178,9 +174,9 @@ def preliminary_flagging(cal):
             "from configuration file: %s",
             ";".join(badchans),
         )
-        cont_spws = [int(i) for i in cal.cont_spws.split(",")]
+        cont_spws = [int(i) for i in cal.cont_spws]
         badchans = np.array([int(i) for i in badchans])
-        cal.interpolate_channels(cont_spws, badchans)
+        cal.interpolate_channels(cal.cont_spws, badchans)
         cal.logger.info("Done")
 
     # Extend the flags
