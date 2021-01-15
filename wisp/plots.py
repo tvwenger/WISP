@@ -214,7 +214,7 @@ def visibility_plots(cal, fieldtype):
     location = "science_figures"
     fields = cal.sci_targets
     if fieldtype == "calibrator":
-        datacolumn = input("Datacolumn? (data or corrected) ")
+        datacolumn = raw_input("Datacolumn? (data or corrected) ")
         location = "calibrator_figures"
         fields = list(
             set(

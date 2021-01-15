@@ -30,7 +30,7 @@ import pickle
 import numpy as np
 
 
-def preliminary_flagging(cal, casa):
+def preliminary_flagging(cal):
     """
     Perform preliminary flagging: shadowed antennas, quack,
     flags from configuration file, interpolations from
@@ -39,8 +39,6 @@ def preliminary_flagging(cal, casa):
     Inputs:
         cal :: Calibration object
             The calibration object
-        casa :: CASA namespace
-            CASA namespace
 
     Returns: Nothing
     """
@@ -48,7 +46,7 @@ def preliminary_flagging(cal, casa):
 
     # Flag shadowed antennas
     cal.logger.info("Flagging shadowed antennas...")
-    casa.flagdata(
+    cal.casa.flagdata(
         vis=cal.vis,
         mode="shadow",
         tolerance=cal.shadow_tolerance,
@@ -60,9 +58,9 @@ def preliminary_flagging(cal, casa):
     # Flag the beginning of each scan
     if cal.quack_interval > 0:
         cal.logger.info(
-            "Flagging the first %f of each scan...", cal.quack_interval
+            "Flagging the first %f seconds of each scan...", cal.quack_interval
         )
-        casa.flagdata(
+        cal.casa.flagdata(
             vis=cal.vis,
             mode="quack",
             quackinterval=cal.quack_interval,
@@ -75,7 +73,7 @@ def preliminary_flagging(cal, casa):
     scan = cal.config.get("Flags", "Scan")
     if scan != "":
         cal.logger.info("Flagging scans from configuration file: " "%s", scan)
-        casa.flagdata(
+        cal.casa.flagdata(
             vis=cal.vis,
             mode="manual",
             scan=scan,
@@ -90,7 +88,7 @@ def preliminary_flagging(cal, casa):
         cal.logger.info(
             "Flagging antennas from configuration " "file: %s", antenna
         )
-        casa.flagdata(
+        cal.casa.flagdata(
             vis=cal.vis,
             mode="manual",
             antenna=antenna,
@@ -106,7 +104,7 @@ def preliminary_flagging(cal, casa):
             "Flagging spectral windows from " "configuration file: %s",
             spws,
         )
-        casa.flagdata(
+        cal.casa.flagdata(
             vis=cal.vis,
             mode="manual",
             spw=spws,
@@ -127,7 +125,7 @@ def preliminary_flagging(cal, casa):
         line_spws = ",".join(
             [i + ":" + badchans for i in cal.line_spws.split(",")]
         )
-        casa.flagdata(
+        cal.casa.flagdata(
             vis=cal.vis,
             mode="manual",
             spw=line_spws,
@@ -148,7 +146,7 @@ def preliminary_flagging(cal, casa):
         cont_spws = ",".join(
             [i + ":" + badchans for i in cal.cont_spws.split(",")]
         )
-        casa.flagdata(
+        cal.casa.flagdata(
             vis=cal.vis,
             mode="manual",
             spw=cont_spws,
@@ -187,7 +185,7 @@ def preliminary_flagging(cal, casa):
 
     # Extend the flags
     cal.logger.info("Extending flags...")
-    casa.flagdata(
+    cal.casa.flagdata(
         vis=cal.vis,
         mode="extend",
         extendpols=True,
@@ -200,7 +198,7 @@ def preliminary_flagging(cal, casa):
     cal.save_flags("preliminary")
 
 
-def auto_flag(cal, casa, fields, extend=False):
+def auto_flag(cal, fields, extend=False):
     """
     Perform automatic flagging using the rflag algorithm on
     calibrated visiblities, then optionally extend the flags.
@@ -208,8 +206,6 @@ def auto_flag(cal, casa, fields, extend=False):
     Inputs:
         cal :: Calibration object
             The calibration object
-        casa :: CASA namespace
-            CASA namespace
         field :: list of strings
             The field(s) to flag
         extend :: boolean
@@ -218,7 +214,7 @@ def auto_flag(cal, casa, fields, extend=False):
         Returns: Nothing
     """
     cal.logger.info("Running rflag on corrected data column...")
-    casa.flagdata(
+    cal.casa.flagdata(
         vis=cal.vis,
         mode="rflag",
         field=",".join(fields),
@@ -231,7 +227,7 @@ def auto_flag(cal, casa, fields, extend=False):
     # Extend the flags
     if extend:
         cal.logger.info("Extending flags...")
-        casa.flagdata(
+        cal.casa.flagdata(
             vis=cal.vis,
             mode="extend",
             extendpols=True,
@@ -258,12 +254,12 @@ def manual_flag(cal, fieldtype):
 
     Returns: Nothing
     """
-    fname = "science_plots.pkl"
+    fname = "science_figures.pkl"
     datacolumn = "corrected"
     if fieldtype == "calibrator":
-        fname = "calibrator_plots.pkl"
+        fname = "calibrator_figures.pkl"
         # get datacolumn
-        datacolumn = input("Datacolumn? (data or corrected) ")
+        datacolumn = raw_input("Datacolumn? (data or corrected) ")
 
     # Read plot list from pickle object
     cal.logger.info("Reading plot list from pickle...")
@@ -279,7 +275,7 @@ def manual_flag(cal, fieldtype):
         print("f :: flag some data")
         print("<number> :: open interactive plot with this id")
         print("quit :: end this flagging session")
-        answer = input()
+        answer = raw_input()
 
         # Flag some data
         if answer.lower() == "f":
@@ -342,7 +338,7 @@ def flag(cal, fieldtype):
 
         # Prompt user for attributes to flag
         print("Field? Empty = {0}".format(",".join(fields)))
-        field = input()
+        field = raw_input()
         if field == "":
             field = ",".join(fields)
         if field not in ",".join(fields):
@@ -352,24 +348,24 @@ def flag(cal, fieldtype):
             "Scan? Empty = all scans (ex. 0 to flag scan 0, 1~3 "
             "to flag scans 1, 2, and 3)"
         )
-        scan = input()
+        scan = raw_input()
         print(
             "Spectral window and channels? Empty = all spws "
             "(ex. 2:100~150;200:250,5:1200~1210 is spw 2, chans "
             "100 to 150 and 200 to 250, and spw 5 chans 1200 to "
             "1210)"
         )
-        spw = input()
+        spw = raw_input()
         print("Time range? Empty = all times (ex. " "10:23:45~10:23:55)")
-        timerange = input()
+        timerange = raw_input()
         print(
             "Antenna or baseline? Empty = all antennas/baselines "
             "(ex. CA01 to flag ant 1 or CA01&CA02 to flag 1-2 "
             "baseline)"
         )
-        antenna = input()
+        antenna = raw_input()
         print("Correlation? Empty = all correlations (i.e. XX,YY)")
-        correlation = input()
+        correlation = raw_input()
 
         # Build flag command
         parts = []
@@ -403,7 +399,7 @@ def flag(cal, fieldtype):
             else:
                 print('                  "{0}",'.format(cmd))
         print("Proceed [y/n] or add another flag command [a]?")
-        answer = input()
+        answer = raw_input()
 
         # Execute flag command
         if answer.lower() == "y":

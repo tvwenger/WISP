@@ -61,7 +61,7 @@ def crosshand_delays_table(cal):
         gainfield=gainfields,
         spwmap=spwmaps,
     )
-    if not os.path.isdir(cal.table["crosshan_delays"]):
+    if not os.path.isdir(cal.tables["crosshand_delays"]):
         cal.logger.critical("Problem with cross-hand delay calibration")
         raise ValueError("Problem with cross-hand delay calibration!")
     cal.logger.info("Done.")

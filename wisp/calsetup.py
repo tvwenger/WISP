@@ -25,24 +25,7 @@ Trey V. Wenger August 2019 - V2.1
 """
 
 import numpy as np
-
-
-def get_refant(cal):
-    """
-    Get the reference antenna. Currently just asks the user.
-
-    Inputs:
-        cal :: Calibration object
-            The calibration object
-
-    Returns: Nothing
-    """
-    cal.logger.info("Looking for good reference antenna...")
-    cal.refant = input("Reference Antenna? ")
-    if cal.refant is None:
-        cal.logger.critical("No good referance antenna found!")
-        raise ValueError("No good referance antenna found!")
-    cal.logger.info("Done. Found reference antenna: %s", cal.refant)
+from .utils import natural_sort
 
 
 def get_calibrators(cal, caltype):
@@ -98,18 +81,17 @@ def get_scan_fields(cal):
         fields :: list of strings
             Field names associated with each scan, in scan order.
     """
-    # get number of scans
+    # get scan numbers
     cal.casa.ms.open(cal.vis)
     scans = cal.casa.ms.getscansummary()
     cal.casa.ms.close()
+    scan_nums = natural_sort(scans.keys())
 
     # get field names
     cal.casa.msmd.open(cal.vis)
     fieldnames = cal.casa.msmd.fieldnames()
     cal.casa.msmd.close()
-    return [
-        fieldnames[scans[str(i)]["0"]["FieldId"]] for i in range(len(scans))
-    ]
+    return [fieldnames[scans[num]["0"]["FieldId"]] for num in scan_nums]
 
 
 def assign_secondary_calibrators(cal):
@@ -136,7 +118,7 @@ def assign_secondary_calibrators(cal):
 
     # Assign closest secondary calibrator (in time) to each science target
     science_calibrators = {}
-    cal.logging.info("{0:15} {1:15}".format("Target", "Calibrator"))
+    cal.logger.info("{0:15} {1:15}".format("Target", "Calibrator"))
     for sci_field in scan_fields:
         # skip calibrators and those already assigned
         if sci_field in cal.calibrators or sci_field in science_calibrators:
@@ -213,4 +195,5 @@ def assign_secondary_calibrators(cal):
                 else:
                     calib = closest_after
         science_calibrators[sci_field] = calib
-        cal.logging.info("{0:15} {1:15}".format(sci_field, calib))
+        cal.logger.info("{0:15} {1:15}".format(sci_field, calib))
+    return science_calibrators

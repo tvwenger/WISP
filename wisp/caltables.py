@@ -194,7 +194,7 @@ def prebandpass_primary_tables(cal, use_smodel=False):
             append=append,
             smodel=smodel,
         )
-    if not os.path.isdir(cal.table["delays"]):
+    if not os.path.isdir(cal.tables["delays"]):
         cal.logger.critical("Problem with delay calibration")
         raise ValueError("Problem with delay calibration!")
 
@@ -431,7 +431,7 @@ def flux_table(cal):
         reference=field,
         incremental=True,
     )
-    if not os.path.isdir(cal.table["flux"]):
+    if not os.path.isdir(cal.tables["flux"]):
         cal.logger.critical("Problem with flux scale alibration")
         raise ValueError("Problem with flux scale calibration!")
     cal.logger.info("Done.")

@@ -26,23 +26,27 @@ Trey V. Wenger August 2019 - V2.1
 
 import os
 import logging
-from wisp.plots import visibility_plots
+import logging.config
 import ConfigParser
 
-from .calibration import Calibration, apply_calibration
+from .calibration import Calibration, apply_calibration, generate_tables
 from .flagging import auto_flag, manual_flag, preliminary_flagging
+from .plots import visibility_plots
 
 import __main__ as casa
 
 # load logging configuration file
-logging.config.fileConfig(os.path.join(__file__), "logging.conf")
+logging.config.fileConfig(
+    os.path.join(os.path.dirname(__file__), "logging.conf")
+)
 
 
 def calibrate(
     vis,
     config_file,
+    refant,
     shadow_tolerance=0.0,
-    quack_interval=10.0,
+    quack_interval=0.0,
     antpos=True,
     gaincurve=True,
     opacity=True,
@@ -59,6 +63,8 @@ def calibrate(
             The masurement set
         config_file :: string
             The filename of the configuration file for this project
+        refant :: string
+            Reference antenna
         shadow_tolerance :: scalar
             The overlap tolerance used for shadow flagging. Flag
             any data with projected baseline separation less than
@@ -110,6 +116,7 @@ def calibrate(
         vis,
         logger,
         config,
+        refant,
         shadow_tolerance=shadow_tolerance,
         quack_interval=quack_interval,
         antpos=antpos,
@@ -139,7 +146,7 @@ def calibrate(
             print("8. Manually flag science fields")
             print("9. Split calibrated fields")
             print("q [quit]")
-            answer = input("> ")
+            answer = raw_input("> ")
         else:
             answer = auto_items[auto_ind]
             auto_ind += 1
@@ -152,6 +159,7 @@ def calibrate(
         elif answer == "3":
             manual_flag(cal, "calibrator")
         elif answer == "4":
+            generate_tables(cal)
             apply_calibration(cal, "calibrator")
         elif answer == "5":
             apply_calibration(cal, "science")

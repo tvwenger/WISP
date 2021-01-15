@@ -2375,7 +2375,7 @@ def main(
             print("10. Generate continuum diagnostic plots")
             print("11. Generate spectral line diagnostic plots")
             print("q [quit]")
-            answer = input("> ")
+            answer = raw_input("> ")
         else:
             answer = auto_items[auto_ind]
             auto_ind += 1

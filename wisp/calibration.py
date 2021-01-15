@@ -46,12 +46,11 @@ Trey V. Wenger August 2019 - V2.1
 import os
 import time
 
-from wisp.calsetup import (
-    get_refant,
+from .calsetup import (
     get_calibrators,
     assign_secondary_calibrators,
 )
-from wisp.caltables import (
+from .caltables import (
     flux_table,
     set_cal_models,
     initial_tables,
@@ -60,13 +59,13 @@ from wisp.caltables import (
     gain_tables,
 )
 
-from wisp.poltables import (
+from .poltables import (
     crosshand_delays_table,
     polangle_table,
     polleak_table,
 )
 
-from wisp.utils import get_smodels
+from .utils import get_smodels
 
 
 class Calibration:
@@ -81,6 +80,7 @@ class Calibration:
         vis,
         logger,
         config,
+        refant,
         shadow_tolerance=0.0,
         quack_interval=10.0,
         antpos=True,
@@ -104,6 +104,8 @@ class Calibration:
                 The logging object we're using
             config :: config.ConfigParser object
                 The config parser we're using
+            refant :: string
+                Reference antenna
             shadow_tolerance :: scalar
                 The overlap tolerance used for shadow flagging. Flag
                 any data with projected baseline separation less than
@@ -135,6 +137,7 @@ class Calibration:
         self.vis = vis
         self.logger = logger
         self.config = config
+        self.refant = refant
         self.shadow_tolerance = shadow_tolerance
         self.quack_interval = quack_interval
         self.antpos = antpos
@@ -147,6 +150,9 @@ class Calibration:
 
         # Initialize calibration tables
         self.tables = {
+            "antpos": "antpos.cal",
+            "gaincurve": "gaincurve.cal",
+            "opacity": "opacity.cal",
             "delays": "delays.Kcal",
             "phase_int0": "phase_int0.Gcal",
             "bandpass": "bandpass.Bcal",
@@ -158,9 +164,6 @@ class Calibration:
             "polleak": "polleak.Dcal",
             "polangle": "polangle.Xcal",
         }
-
-        # Get reference antenna
-        get_refant(self)
 
         # Generate listobs file
         listfile = "listobs.txt"
@@ -177,9 +180,9 @@ class Calibration:
 
         # Get feed orientation from listobs file
         with open(listfile, "r") as fin:
-            for line in fin:
-                if "Corrs" in line:
-                    break
+            line = fin.readline()
+            while "Corrs" not in line:
+                line = fin.readline()
             line = fin.readline()
             if "RR" in line or "LL" in line:
                 self.orientation = "circular"
@@ -198,36 +201,40 @@ class Calibration:
         self.logger.info("Found fields: %s", ", ".join(self.all_fields))
 
         # Get primary calibrator fields
-        self.pri_cals = get_calibrators("Primary")
+        self.pri_cals = get_calibrators(self, "Primary")
         self.logger.info("Primary calibrators: %s", ", ".join(self.pri_cals))
 
         # Get Secondary calibrator fields
-        self.sec_cals = get_calibrators("Secondary")
+        self.sec_cals = get_calibrators(self, "Secondary")
         self.logger.info("Secondary calibrators: %s", ", ".join(self.sec_cals))
 
         # Get flux calibrator fields
-        self.flux_cals = get_calibrators("Flux")
+        self.flux_cals = get_calibrators(self, "Flux")
         self.logger.info("Flux calibrators: %s", ", ".join(self.flux_cals))
 
         # Get polarization leakage calibrators
-        self.pol_leak_cals = get_calibrators("PolLeakage")
+        self.pol_leak_cals = get_calibrators(self, "PolLeakage")
 
         # Get polarization angle calibrators
-        self.pol_angle_cals = get_calibrators("PolAngle")
+        self.pol_angle_cals = get_calibrators(self, "PolAngle")
 
         # Check that polarization calibrators exist if needed
         if self.calpol:
             if not self.pol_leak_cals:
                 raise ValueError("No polarization leakge calibrators found")
+            self.logger.info(
+                "Polarization leakage calibrators: %s",
+                ", ".join(self.pol_leak_cals),
+            )
             if self.orientation == "circular":
                 if not self.pol_angle_cals:
                     raise ValueError(
                         "No polarization angle calibrators found."
                     )
-            self.logger.info(
-                "Polarization leakage calibrators: %s",
-                ", ".join(self.pol_leak_cals),
-            )
+                self.logger.info(
+                    "Polarization angle calibrators: %s",
+                    ", ".join(self.pol_angle_cals),
+                )
 
         # Compile calibrator fields
         self.calibrators = list(
@@ -251,7 +258,7 @@ class Calibration:
         self.logger.info(
             "Identifying secondary calibrators for each science target..."
         )
-        self.science_calibrators = assign_secondary_calibrators(self, casa)
+        self.science_calibrators = assign_secondary_calibrators(self)
 
         # create directories for figures
         if not os.path.isdir("calibrator_figures"):
@@ -355,7 +362,7 @@ class Calibration:
             spwmaps.append([])
         else:
             gaintables.append(self.tables["phase_int1"])
-            gainfields.append(self.science_calibrators[field])
+            gainfields.append("")
             spwmaps.append([])
         if step == "amplitude":
             return gaintables, gainfields, spwmaps
@@ -369,16 +376,19 @@ class Calibration:
         spwmaps.append([])
 
         # add flux
-        gaintables.append(self.tables["flux"])
-        gainfields.append("")
-        spwmaps.append([])
+        if not self.calpol and not os.path.exists(self.tables["flux"]):
+            raise ValueError("Missing flux calibration table.")
+        if os.path.exists(self.tables["flux"]):
+            gaintables.append(self.tables["flux"])
+            gainfields.append("")
+            spwmaps.append([])
 
         # we're done if we're not doing polarization calibration
         if (not self.calpol and step == "apply") or step == "crosshand_delays":
             return gaintables, gainfields, spwmaps
 
         # add cross-hand delays
-        if self.calpol and os.path.exists(self.table["crosshand_delays"]):
+        if self.calpol and os.path.exists(self.tables["crosshand_delays"]):
             gaintables.append(self.tables["crosshand_delays"])
             gainfields.append("")
             num_spws = len(self.cont_spws.split(",")) + len(
@@ -389,7 +399,7 @@ class Calibration:
             return gaintables, gainfields, spwmaps
 
         # add polarization leakage
-        if self.calpol and os.path.exists(self.table["polleak"]):
+        if self.calpol and os.path.exists(self.tables["polleak"]):
             gaintables.append(self.tables["polleak"])
             gainfields.append("")
             spwmaps.append([])
@@ -397,7 +407,7 @@ class Calibration:
             return gaintables, gainfields, spwmaps
 
         # add polarization angle
-        if self.calpol and os.path.exists(self.table["polangle"]):
+        if self.calpol and os.path.exists(self.tables["polangle"]):
             gaintables.append(self.tables["polangle"])
             gainfields.append("")
             spwmaps.append([])
@@ -477,6 +487,7 @@ def generate_tables(cal):
         prebandpass_primary_tables(cal, use_smodel=True)
         bandpass_table(cal, use_smodel=False)
         gain_tables(cal, use_smodel=False)
+        flux_table(cal)
 
 
 def apply_calibration(cal, fieldtype):
