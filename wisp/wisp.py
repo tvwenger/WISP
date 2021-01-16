@@ -31,7 +31,7 @@ import ConfigParser
 
 from .calibration import Calibration, apply_calibration, generate_tables
 from .flagging import auto_flag, manual_flag, preliminary_flagging
-from .plots import visibility_plots
+from .plots import visibility_plots, plotcal_plots
 
 import __main__ as casa
 
@@ -156,6 +156,7 @@ def calibrate(
             manual_flag(cal, "calibrator")
         elif answer == "4":
             generate_tables(cal)
+            plotcal_plots(cal)
             apply_calibration(cal, "calibrator")
         elif answer == "5":
             apply_calibration(cal, "science")

@@ -47,22 +47,6 @@ def plotcal_plots(cal):
     for fname in fnames:
         os.remove(fname)
 
-    # Delay
-    field = ",".join(cal.pri_cals)
-    cal.casa.plotms(
-        vis=cal.tables["delays"],
-        xaxis="frequency",
-        yaxis="delay",
-        field=field,
-        iteraxis="antenna",
-        coloraxis="corr",
-        title="Delays",
-        plotfile="plotcal_figures/0_delay.png",
-        overwrite=True,
-        showgui=False,
-        exprange="all",
-    )
-
     # Bandpass
     field = ",".join(cal.pri_cals)
     cal.casa.plotms(
@@ -73,7 +57,7 @@ def plotcal_plots(cal):
         iteraxis="spw",
         coloraxis="antenna1",
         title="Bandpass",
-        plotfile="plotcal_figures/1_bandpass.png",
+        plotfile="plotcal_figures/0_bandpass.png",
         overwrite=True,
         showgui=False,
         exprange="all",
@@ -89,7 +73,7 @@ def plotcal_plots(cal):
         iteraxis="spw",
         coloraxis="antenna1",
         title="Integration Phase",
-        plotfile="plotcal_figures/2_phase_int.png",
+        plotfile="plotcal_figures/1_phase_int.png",
         overwrite=True,
         showgui=False,
         exprange="all",
@@ -104,7 +88,7 @@ def plotcal_plots(cal):
         iteraxis="spw",
         coloraxis="antenna1",
         title="Scan Phase",
-        plotfile="plotcal_figures/3_phase_scan.png",
+        plotfile="plotcal_figures/2_phase_scan.png",
         overwrite=True,
         showgui=False,
         exprange="all",
@@ -119,30 +103,13 @@ def plotcal_plots(cal):
         iteraxis="spw",
         coloraxis="antenna1",
         title="Amplitude",
-        plotfile="plotcal_figures/4_amplitude.png",
+        plotfile="plotcal_figures/3_amplitude.png",
         overwrite=True,
         showgui=False,
         exprange="all",
     )
 
     if cal.calpol:
-        # Crosshand delays
-        if os.path.exists(cal.tables["crosshand_delays"]):
-            field = ",".join(cal.pol_leak_cals)
-            cal.casa.plotms(
-                vis=cal.tables["crosshand_delays"],
-                xaxis="frequency",
-                yaxis="delay",
-                field=field,
-                iteraxis="antenna",
-                coloraxis="correlation",
-                title="Cross-hand Delays",
-                plotfile="plotcal_figures/5_crosshand_delay.png",
-                overwrite=True,
-                showgui=False,
-                exprange="all",
-            )
-
         # Polarization leakge amplitude
         field = ",".join(cal.pol_leak_cals)
         cal.casa.plotms(
@@ -153,7 +120,7 @@ def plotcal_plots(cal):
             iteraxis="spw",
             coloraxis="antenna1",
             title="Polarization Leakage Amplitude",
-            plotfile="plotcal_figures/6_polleak_amp.png",
+            plotfile="plotcal_figures/4_polleak_amp.png",
             overwrite=True,
             showgui=False,
             exprange="all",
@@ -169,7 +136,7 @@ def plotcal_plots(cal):
             iteraxis="spw",
             coloraxis="antenna1",
             title="Polarization Leakage Phase",
-            plotfile="plotcal_figures/7_polleak_phase.png",
+            plotfile="plotcal_figures/5_polleak_phase.png",
             overwrite=True,
             showgui=False,
             exprange="all",
@@ -183,9 +150,9 @@ def plotcal_plots(cal):
                 xaxis="frequency",
                 yaxis="phase",
                 field=field,
-                coloraxis="correlation",
+                coloraxis="corr",
                 title="Polarization Angle",
-                plotfile="plotcal_figures/8_polangle_phase.png",
+                plotfile="plotcal_figures/6_polangle_phase.png",
                 overwrite=True,
                 showgui=False,
                 exprange="all",
