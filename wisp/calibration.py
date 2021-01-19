@@ -295,7 +295,7 @@ class Calibration:
         )
         self.logger.info("Done")
 
-    def gaintables(self, step, field=None):
+    def gaintables(self, step, field):
         """
         Get the calibration tables up to a given calibration step, excluding
         missing optional tables. Also return the associated fields and spectral
@@ -306,12 +306,14 @@ class Calibration:
 
         Inputs:
             step :: string
-                One of the steps from the table above
+                The step for which to get the preceeding calibration tables.
+                One of the steps from the list above.
             field :: string
-                If not None, set the science target field name to which these
-                calibration tables will be applied. The returned gainfields
-                will have the appropriate secondary calibrator for the complex
-                phase and amplitude tables.
+                The field name to which these calibration tables will be
+                applied. This parameter sets gainfields for the phase and
+                amplitude tables to be either <field> if <field> is a
+                calibrator or the associated calibrator <field> if <field>
+                is a science target.
 
         Returns: gaintables, gainfields, spwmaps
             gaintables :: list of strings
@@ -361,7 +363,7 @@ class Calibration:
         if step == "bandpass":
             return (
                 gaintables + [self.tables["phase_int0"]],
-                gainfields + [""],
+                gainfields + [field],
                 spwmaps + [[]],
             )
 
@@ -373,23 +375,23 @@ class Calibration:
             return gaintables, gainfields, spwmaps
 
         # add phase_int1 or phase_scan
-        if field is not None and field in self.sci_targets:
+        if field in self.sci_targets:
             gaintables.append(self.tables["phase_scan"])
             gainfields.append(self.science_calibrators[field])
             spwmaps.append([])
         else:
             gaintables.append(self.tables["phase_int1"])
-            gainfields.append("")
+            gainfields.append(field)
             spwmaps.append([])
         if step == "amplitude":
             return gaintables, gainfields, spwmaps
 
         # add amplitude
         gaintables.append(self.tables["amplitude"])
-        if field is not None and field in self.sci_targets:
+        if field in self.sci_targets:
             gainfields.append(self.science_calibrators[field])
         else:
-            gainfields.append("")
+            gainfields.append(field)
         spwmaps.append([])
 
         # add flux
@@ -397,7 +399,10 @@ class Calibration:
             raise ValueError("Missing flux calibration table.")
         if os.path.exists(self.tables["flux"]):
             gaintables.append(self.tables["flux"])
-            gainfields.append("")
+            if field in self.sci_targets:
+                gainfields.append(self.science_calibrators[field])
+            else:
+                gainfields.append(field)
             spwmaps.append([])
 
         # we're done if we're not doing polarization calibration
@@ -533,7 +538,7 @@ def apply_calibration(cal, fieldtype):
     else:
         raise ValueError("Invalid fieldtype: {0}".format(fieldtype))
     for field in fields:
-        gaintables, gainfields, spwmaps = cal.gaintables("apply", field=field)
+        gaintables, gainfields, spwmaps = cal.gaintables("apply", field)
         cal.casa.applycal(
             vis=cal.vis,
             field=field,

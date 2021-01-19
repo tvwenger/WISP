@@ -53,9 +53,9 @@ def set_cal_models(cal):
 
             # get stokes I flux density
             fluxdensity = cal.config.get(
-                "Calibrator Models", "Log Flux Density"
+                "Calibrator Models", "Flux Density"
             ).splitlines()
-            fluxdensity = [fluxdensity[idx], 0, 0, 0]
+            fluxdensity = [float(fluxdensity[idx]), 0, 0, 0]
 
             # get spectral index coefficients
             spix = cal.config.get(
@@ -167,7 +167,6 @@ def prebandpass_primary_tables(cal, use_smodel=False):
     Returns: Nothing
     """
     fields = cal.pri_cals
-    gaintables, gainfields, spwmaps = cal.gaintables("delays")
 
     # Delay calibration
     cal.logger.info(
@@ -176,6 +175,7 @@ def prebandpass_primary_tables(cal, use_smodel=False):
     if os.path.isdir(cal.tables["delays"]):
         cal.casa.rmtables(cal.tables["delays"])
     for field in fields:
+        gaintables, gainfields, spwmaps = cal.gaintables("delays", field)
         append = os.path.exists(cal.tables["delays"])
         smodel = None
         if use_smodel:
@@ -201,7 +201,6 @@ def prebandpass_primary_tables(cal, use_smodel=False):
         raise ValueError("Problem with delay calibration!")
 
     # Integration timescale phase calibration
-    gaintables, gainfields, spwmaps = cal.gaintables("phase_int0")
     cal.logger.info(
         "Calculating phase calibration table on integration timescales for "
         "primary calibrators..."
@@ -209,6 +208,7 @@ def prebandpass_primary_tables(cal, use_smodel=False):
     if os.path.isdir(cal.tables["phase_int0"]):
         cal.casa.rmtables(cal.tables["phase_int0"])
     for field in fields:
+        gaintables, gainfields, spwmaps = cal.gaintables("phase_int0", field)
         append = os.path.exists(cal.tables["phase_int0"])
         smodel = None
         if use_smodel:
@@ -253,7 +253,6 @@ def bandpass_table(cal, use_smodel=False):
     Returns: Nothing
     """
     fields = cal.pri_cals
-    gaintables, gainfields, spwmaps = cal.gaintables("bandpass")
 
     cal.logger.info(
         "Calculating bandpass calibration table for primary calibrators..."
@@ -261,6 +260,7 @@ def bandpass_table(cal, use_smodel=False):
     if os.path.isdir(cal.tables["bandpass"]):
         cal.casa.rmtables(cal.tables["bandpass"])
     for field in fields:
+        gaintables, gainfields, spwmaps = cal.gaintables("bandpass", field)
         append = os.path.exists(cal.tables["bandpass"])
         smodel = None
         if use_smodel:
@@ -304,7 +304,6 @@ def gain_tables(cal, use_smodel=False):
     fields = cal.calibrators
 
     # integration timescale phase calibration
-    gaintables, gainfields, spwmaps = cal.gaintables("phase_int1")
     cal.logger.info(
         "Re-calculating the phase calibration table on integration timescales "
         "for all calibrators..."
@@ -312,6 +311,7 @@ def gain_tables(cal, use_smodel=False):
     if os.path.isdir(cal.tables["phase_int1"]):
         cal.casa.rmtables(cal.tables["phase_int1"])
     for field in fields:
+        gaintables, gainfields, spwmaps = cal.gaintables("phase_int1", field)
         append = os.path.exists(cal.tables["phase_int1"])
         smodel = None
         if use_smodel:
@@ -343,7 +343,6 @@ def gain_tables(cal, use_smodel=False):
     cal.logger.info("Done.")
 
     # scan timescale phase calibration
-    gaintables, gainfields, spwmaps = cal.gaintables("phase_scan")
     cal.logger.info(
         "Calculating the phase calibration table on "
         "scan timescales for all calibrators..."
@@ -351,6 +350,7 @@ def gain_tables(cal, use_smodel=False):
     if os.path.isdir(cal.tables["phase_scan"]):
         cal.casa.rmtables(cal.tables["phase_scan"])
     for field in fields:
+        gaintables, gainfields, spwmaps = cal.gaintables("phase_scan", field)
         append = os.path.exists(cal.tables["phase_scan"])
         smodel = None
         if use_smodel:
@@ -378,7 +378,6 @@ def gain_tables(cal, use_smodel=False):
     cal.logger.info("Done.")
 
     # scan timescale amplitude corrections
-    gaintables, gainfields, spwmaps = cal.gaintables("amplitude")
     cal.logger.info(
         "Calculating the amplitude calibration table "
         "on scan timescales for all calibrators..."
@@ -386,6 +385,7 @@ def gain_tables(cal, use_smodel=False):
     if os.path.isdir(cal.tables["amplitude"]):
         cal.casa.rmtables(cal.tables["amplitude"])
     for field in fields:
+        gaintables, gainfields, spwmaps = cal.gaintables("amplitude", field)
         append = os.path.exists(cal.tables["amplitude"])
         smodel = None
         if use_smodel:

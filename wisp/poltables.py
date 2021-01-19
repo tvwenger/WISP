@@ -38,8 +38,7 @@ def crosshand_delays_table(cal):
 
     Returns: Nothing
     """
-    field = ",".join(cal.pol_leak_cals)
-    gaintables, gainfields, spwmaps = cal.gaintables("crosshand_delays")
+    fields = cal.pol_leak_cals
 
     cal.logger.info(
         "Calculating cross-hand delay calibration table for polarized "
@@ -47,20 +46,26 @@ def crosshand_delays_table(cal):
     )
     if os.path.isdir(cal.tables["crosshand_delays"]):
         cal.casa.rmtables(cal.tables["crosshand_delays"])
-    cal.casa.gaincal(
-        vis=cal.vis,
-        caltable=cal.tables["crosshand_delays"],
-        field=field,
-        refant=cal.refant,
-        solint="inf",
-        combine="scan,spw",
-        minblperant=1,
-        gaintype="KCROSS",
-        parang=cal.calpol,
-        gaintable=gaintables,
-        gainfield=gainfields,
-        spwmap=spwmaps,
-    )
+    for field in fields:
+        gaintables, gainfields, spwmaps = cal.gaintables(
+            "crosshand_delays", field
+        )
+        append = os.path.exists(cal.tables["crosshand_delays"])
+        cal.casa.gaincal(
+            vis=cal.vis,
+            caltable=cal.tables["crosshand_delays"],
+            field=field,
+            refant=cal.refant,
+            solint="inf",
+            combine="scan,spw",
+            minblperant=1,
+            gaintype="KCROSS",
+            parang=cal.calpol,
+            gaintable=gaintables,
+            gainfield=gainfields,
+            spwmap=spwmaps,
+            append=append,
+        )
     if not os.path.isdir(cal.tables["crosshand_delays"]):
         cal.logger.critical("Problem with cross-hand delay calibration")
         raise ValueError("Problem with cross-hand delay calibration!")
@@ -77,8 +82,7 @@ def polleak_table(cal):
 
     Returns: Nothing
     """
-    field = ",".join(cal.pol_leak_cals)
-    gaintables, gainfields, spwmaps = cal.gaintables("polleak")
+    fields = cal.pol_leak_cals
 
     cal.logger.info(
         "Calculating the polarization leakage calibration table on scan "
@@ -86,20 +90,24 @@ def polleak_table(cal):
     )
     if os.path.isdir(cal.tables["polleak"]):
         cal.casa.rmtables(cal.tables["polleak"])
-    cal.casa.polcal(
-        vis=cal.vis,
-        caltable=cal.tables["polleak"],
-        field=field,
-        solint="inf",
-        combine="scan",
-        poltype="Df",
-        refant=cal.refant,
-        minsnr=2.0,
-        minblperant=1,
-        gaintable=gaintables,
-        gainfield=gainfields,
-        spwmap=spwmaps,
-    )
+    for field in fields:
+        gaintables, gainfields, spwmaps = cal.gaintables("polleak", field)
+        append = os.path.exists(cal.tables["polleak"])
+        cal.casa.polcal(
+            vis=cal.vis,
+            caltable=cal.tables["polleak"],
+            field=field,
+            solint="inf",
+            combine="scan",
+            poltype="Df",
+            refant=cal.refant,
+            minsnr=2.0,
+            minblperant=1,
+            gaintable=gaintables,
+            gainfield=gainfields,
+            spwmap=spwmaps,
+            append=append,
+        )
     if not os.path.isdir(cal.tables["polleak"]):
         cal.logger.critical("Problem with polarization leakage calibration")
         raise ValueError("Problem with polarization leakage calibration")
@@ -116,8 +124,7 @@ def polangle_table(cal):
 
     Returns: Nothing
     """
-    field = ",".join(cal.pol_angle_cals)
-    gaintables, gainfields, spwmaps = cal.gaintables("polangle")
+    fields = cal.pol_angle_cals
 
     cal.logger.info(
         "Calculating the polarization angle calibration table on scan "
@@ -125,20 +132,24 @@ def polangle_table(cal):
     )
     if os.path.isdir(cal.tables["polangle"]):
         cal.casa.rmtables(cal.tables["polangle"])
-    cal.casa.polcal(
-        vis=cal.vis,
-        caltable=cal.tables["polangle"],
-        field=field,
-        solint="inf",
-        combine="scan",
-        poltype="Xf",
-        refant=cal.refant,
-        minsnr=2.0,
-        minblperant=1,
-        gaintable=gaintables,
-        gainfield=gainfields,
-        spwmap=spwmaps,
-    )
+    for field in fields:
+        gaintables, gainfields, spwmaps = cal.gaintables("polangle", field)
+        append = os.path.exists(cal.tables["polangle"])
+        cal.casa.polcal(
+            vis=cal.vis,
+            caltable=cal.tables["polangle"],
+            field=field,
+            solint="inf",
+            combine="scan",
+            poltype="Xf",
+            refant=cal.refant,
+            minsnr=2.0,
+            minblperant=1,
+            gaintable=gaintables,
+            gainfield=gainfields,
+            spwmap=spwmaps,
+            append=append,
+        )
     if not os.path.isdir(cal.tables["polangle"]):
         cal.logger.critical("Problem with polarization angle calibration")
         raise ValueError("Problem with polarization angle calibration")

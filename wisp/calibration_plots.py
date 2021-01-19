@@ -1,5 +1,5 @@
 """
-plots.py - WISP plotting utilities
+calibration_plots.py - WISP plotting utilities for calibration
 
 Copyright(C) 2018-2020 by
 Trey V. Wenger; tvwenger@gmail.com

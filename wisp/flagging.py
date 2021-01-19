@@ -303,7 +303,6 @@ def manual_flag(cal, fieldtype):
                 iteraxis="spw",
                 title=title,
                 coloraxis="baseline",
-                correlation=cal.correlation,
                 avgchannel=plots[plotid]["avgchannel"],
                 avgtime=plots[plotid]["avgtime"],
             )
