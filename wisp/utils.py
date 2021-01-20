@@ -33,6 +33,7 @@ import shutil
 import numpy as np
 
 import casac
+from casac import *
 from tasks import imregrid
 from numpy import fabs
 
