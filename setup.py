@@ -7,5 +7,6 @@ setup(
     author='Trey V. Wenger',
     author_email='tvwenger@gmail.com',
     packages=['wisp'],
+    package_data={'wisp': ['logging.conf']},
     install_requires=['astropy'],
 )
