@@ -212,7 +212,7 @@ class Calibration:
             for i in natural_sort(self.spw_corrs.keys())
             if "RL" in self.spw_corrs[i] or "XY" in self.spw_corrs[i]
         ]
-        if self.polcal:
+        if self.calpol:
             self.logger.info(
                 "Polarization calibration will be applied to these "
                 "spectral windows: %s",
