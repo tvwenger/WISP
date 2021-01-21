@@ -207,13 +207,17 @@ class Calibration:
                 raise ValueError("Correlation mismatch!")
 
         # get spectral windows that have cross correlations
-        self.cross_spws = ",".join(
-            [
-                i
-                for i in natural_sort(self.spw_corrs.keys())
-                if "RL" in self.spw_corrs[i] or "XY" in self.spw_corrs[i]
-            ]
-        )
+        self.cross_spws = [
+            i
+            for i in natural_sort(self.spw_corrs.keys())
+            if "RL" in self.spw_corrs[i] or "XY" in self.spw_corrs[i]
+        ]
+        if self.polcal:
+            self.logger.info(
+                "Polarization calibration will be applied to these "
+                "spectral windows: %s",
+                ",".join(self.cross_spws),
+            )
 
         # get unique field names
         self.logger.info("Looking for field names...")
