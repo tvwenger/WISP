@@ -94,6 +94,47 @@ def get_scan_fields(cal):
     return [fieldnames[scans[num]["0"]["FieldId"]] for num in scan_nums]
 
 
+def get_spw_corrs(cal):
+    """
+    Get the correlation types associated with each spw.
+
+    Inputs:
+        cal :: Calibration object
+            The calibration object
+
+    Returns: corrs
+        corrs :: dictionary
+            The correlation types (value) for each spectral window (key)
+    """
+    # CASA saves correlation types using this integer representation
+    corrints = {
+        5: "RR",
+        6: "RL",
+        7: "LR",
+        8: "LL",
+        9: "XX",
+        10: "XY",
+        11: "YX",
+        12: "YY",
+    }
+
+    # Get correlation type for each spectral window
+    cal.casa.msmd.open(cal.vis)
+    datadescids = cal.casa.msmd.datadescids()
+    spws = cal.casa.msmd.spwfordatadesc()
+    polids = cal.casa.msmd.polidfordatadesc()
+    corrs = {}
+    for datadescid in datadescids:
+        spw = spws[datadescid]
+        polid = polids[datadescid]
+        corr = ",".join(
+            [corrints[i] for i in cal.casa.msmd.corrtypesforpol(polid)]
+        )
+        corrs[str(spw)] = corr
+    cal.casa.msmd.close()
+    return corrs
+
+
 def assign_secondary_calibrators(cal):
     """
     Determine which secondary calibrator to use for each science target,

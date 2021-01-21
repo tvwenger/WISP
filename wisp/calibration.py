@@ -50,6 +50,7 @@ import numpy as np
 
 from .calsetup import (
     get_calibrators,
+    get_spw_corrs,
     assign_secondary_calibrators,
 )
 from .caltables import (
@@ -67,7 +68,7 @@ from .poltables import (
     polleak_table,
 )
 
-from .utils import get_smodels
+from .utils import get_smodels, natural_sort
 
 
 class Calibration:
@@ -186,19 +187,33 @@ class Calibration:
         self.logger.info("Found continuum spws: %s", ",".join(self.cont_spws))
         self.logger.info("Found line spws: %s", ",".join(self.line_spws))
 
-        # Get feed orientation from listobs file
-        with open(listfile, "r") as fin:
-            line = fin.readline()
-            while "Corrs" not in line:
-                line = fin.readline()
-            line = fin.readline()
-            if "RR" in line or "LL" in line:
-                self.orientation = "circular"
-                self.corr = "RR,RL,LR,LL"
+        # Get feed orientation for each spectral window
+        self.spw_corrs = get_spw_corrs(self)
+        self.orientation = None
+        self.logger.info("Spectral window observed correlations:")
+        for spw in natural_sort(self.spw_corrs.keys()):
+            self.logger.info("%s: %s", spw, self.spw_corrs[spw])
+            if "RR" in self.spw_corrs[spw] or "LL" in self.spw_corrs[spw]:
+                orientation = "circular"
+            elif "XX" in self.spw_corrs[spw] or "YY" in self.spw_corrs[spw]:
+                orientation = "linear"
             else:
-                self.orientation = "linear"
-                self.corr = "XX,XY,YX,YY"
-        self.logger.info("Found observed correlations: %s", self.corr)
+                raise ValueError(
+                    "Unknown correlation: {0}".format(self.spw_corrs[spw])
+                )
+            if self.orientation is None:
+                self.orientation = orientation
+            elif self.orientation != orientation:
+                raise ValueError("Correlation mismatch!")
+
+        # get spectral windows that have cross correlations
+        self.cross_spws = ",".join(
+            [
+                i
+                for i in natural_sort(self.spw_corrs.keys())
+                if "RL" in self.spw_corrs[i] or "XY" in self.spw_corrs[i]
+            ]
+        )
 
         # get unique field names
         self.logger.info("Looking for field names...")

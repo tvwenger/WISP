@@ -39,6 +39,7 @@ def crosshand_delays_table(cal):
     Returns: Nothing
     """
     fields = cal.pol_leak_cals
+    spw = cal.cross_spws
 
     cal.logger.info(
         "Calculating cross-hand delay calibration table for polarized "
@@ -53,6 +54,7 @@ def crosshand_delays_table(cal):
         append = os.path.exists(cal.tables["crosshand_delays"])
         cal.casa.gaincal(
             vis=cal.vis,
+            spw=spw,
             caltable=cal.tables["crosshand_delays"],
             field=field,
             refant=cal.refant,
@@ -83,6 +85,7 @@ def polleak_table(cal):
     Returns: Nothing
     """
     fields = cal.pol_leak_cals
+    spw = cal.cross_spws
 
     cal.logger.info(
         "Calculating the polarization leakage calibration table on scan "
@@ -95,6 +98,7 @@ def polleak_table(cal):
         append = os.path.exists(cal.tables["polleak"])
         cal.casa.polcal(
             vis=cal.vis,
+            spw=spw,
             caltable=cal.tables["polleak"],
             field=field,
             solint="inf",
@@ -125,6 +129,7 @@ def polangle_table(cal):
     Returns: Nothing
     """
     fields = cal.pol_angle_cals
+    spw = cal.cross_spws
 
     cal.logger.info(
         "Calculating the polarization angle calibration table on scan "
@@ -137,6 +142,7 @@ def polangle_table(cal):
         append = os.path.exists(cal.tables["polangle"])
         cal.casa.polcal(
             vis=cal.vis,
+            spw=spw,
             caltable=cal.tables["polangle"],
             field=field,
             solint="inf",
