@@ -91,6 +91,7 @@ class Calibration:
         opacity=True,
         calpol=False,
         calwt=True,
+        solint="int",
     ):
         """
         Create a new Calibration object. Get reference antenna,
@@ -128,6 +129,9 @@ class Calibration:
                 if True, calibrate polarization
             calwt :: boolean
                 if True, apply calibration weights to data
+            solint :: string
+                The solution interval for short timescale phase corrections.
+                Default is 'int' for integration. (e.g., solint='10s')
 
         Returns: calibration
             calibration :: calibration.Calibration object
@@ -145,6 +149,7 @@ class Calibration:
         self.opacity = opacity
         self.calpol = calpol
         self.calwt = calwt
+        self.solint = solint
         self.logger.info("Initializing Calibration object.")
 
         # Initialize calibration tables

@@ -62,6 +62,7 @@ def calibrate(
     opacity=True,
     calpol=False,
     calwt=True,
+    solint="int",
     auto="",
 ):
     """
@@ -93,6 +94,9 @@ def calibrate(
             if True, calibrate polarization
         calwt :: boolean
             if True, apply calibration weights to data
+        solint :: string
+            The solution interval for short timescale phase corrections.
+            Default is 'int' for integration. (e.g., solint='10s')
         auto :: string
             comma separated string of menu options to automatically
             perform
@@ -131,6 +135,7 @@ def calibrate(
         opacity=opacity,
         calpol=calpol,
         calwt=calwt,
+        solint=solint,
     )
 
     # Prompt the user with a menu, or automatically execute
