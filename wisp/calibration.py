@@ -216,11 +216,11 @@ class Calibration:
         self.corr_spws = []
         self.nocorr_spws = []
         for i in natural_sort(self.spw_corrs.keys()):
-            self.all_spws.push(i)
+            self.all_spws.append(i)
             if "RL" in self.spw_corrs[i] or "XY" in self.spw_corrs[i]:
-                self.corr_spws.push(i)
+                self.corr_spws.append(i)
             else:
-                self.nocorr_spws.push(i)
+                self.nocorr_spws.append(i)
         if self.calpol:
             self.logger.info(
                 "Polarization calibration will be applied to these "
