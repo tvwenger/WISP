@@ -370,6 +370,7 @@ class Calibration:
             num_spws = len(self.nocorr_spws)
         else:
             raise ValueError("invalid spwtype: {0}".format(spwtype))
+        num_corr_spws = len(self.corr_spws)
 
         # optional tables
         if self.antpos and os.path.exists(self.tables["antpos"]):
@@ -471,7 +472,7 @@ class Calibration:
                     "Cross-hand delays calibration table has more than one "
                     "spectral window"
                 )
-            spwmaps.append([[cal_spws[0]] * num_spws])
+            spwmaps.append([[cal_spws[0]] * num_corr_spws])
         if step == "polleak":
             return gaintables, gainfields, spwmaps
 
@@ -610,23 +611,24 @@ def apply_calibration(cal, fieldtype):
                 flagbackup=False,
             )
         else:
-            # First apply calibration tables to non cross-hand spws
-            gaintables, gainfields, spwmaps, spw = cal.gaintables(
-                "apply", field, spwtype="nocross"
-            )
-            cal.casa.applycal(
-                vis=cal.vis,
-                spw=",".join(cal.nocorr_spws),
-                field=field,
-                calwt=cal.calwt,
-                gaintable=gaintables,
-                gainfield=gainfields,
-                spwmap=spwmaps,
-                parang=False,
-                flagbackup=False,
-            )
+            # First apply calibration tables to non cross-hand spws, if any
+            if len(cal.nocorr_spws) > 0:
+                gaintables, gainfields, spwmaps = cal.gaintables(
+                    "apply", field, spwtype="nocross"
+                )
+                cal.casa.applycal(
+                    vis=cal.vis,
+                    spw=",".join(cal.nocorr_spws),
+                    field=field,
+                    calwt=cal.calwt,
+                    gaintable=gaintables,
+                    gainfield=gainfields,
+                    spwmap=spwmaps,
+                    parang=False,
+                    flagbackup=False,
+                )
             # Then to the cross-hand spws
-            gaintables, gainfields, spwmaps, spw = cal.gaintables(
+            gaintables, gainfields, spwmaps = cal.gaintables(
                 "apply", field, spwtype="cross"
             )
             cal.casa.applycal(
