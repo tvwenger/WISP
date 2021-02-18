@@ -370,7 +370,6 @@ class Calibration:
             num_spws = len(self.nocorr_spws)
         else:
             raise ValueError("invalid spwtype: {0}".format(spwtype))
-        num_corr_spws = len(self.corr_spws)
 
         # optional tables
         if self.antpos and os.path.exists(self.tables["antpos"]):
@@ -472,7 +471,7 @@ class Calibration:
                     "Cross-hand delays calibration table has more than one "
                     "spectral window"
                 )
-            spwmaps.append([[cal_spws[0]] * num_corr_spws])
+            spwmaps.append([[cal_spws[0]] * num_spws])
         if step == "polleak":
             return gaintables, gainfields, spwmaps
 
