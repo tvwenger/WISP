@@ -39,7 +39,7 @@ def crosshand_delays_table(cal):
     Returns: Nothing
     """
     fields = cal.pol_leak_cals
-    spw = ",".join(cal.cross_spws)
+    spw = ",".join(cal.corr_spws)
 
     cal.logger.info(
         "Calculating cross-hand delay calibration table for polarized "
@@ -85,7 +85,7 @@ def polleak_table(cal):
     Returns: Nothing
     """
     fields = cal.pol_leak_cals
-    spw = ",".join(cal.cross_spws)
+    spw = ",".join(cal.corr_spws)
 
     cal.logger.info(
         "Calculating the polarization leakage calibration table on scan "
@@ -129,7 +129,7 @@ def polangle_table(cal):
     Returns: Nothing
     """
     fields = cal.pol_angle_cals
-    spw = ",".join(cal.cross_spws)
+    spw = ",".join(cal.corr_spws)
 
     cal.logger.info(
         "Calculating the polarization angle calibration table on scan "

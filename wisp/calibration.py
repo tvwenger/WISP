@@ -225,7 +225,7 @@ class Calibration:
             self.logger.info(
                 "Polarization calibration will be applied to these "
                 "spectral windows: %s",
-                ",".join(self.cross_spws),
+                ",".join(self.corr_spws),
             )
 
         # get unique field names
@@ -365,9 +365,9 @@ class Calibration:
         if spwtype == "all":
             num_spws = len(self.all_spws)
         elif spwtype == "cross":
-            num_spws = len(self.cross_spws)
+            num_spws = len(self.corr_spws)
         elif spwtype == "nocross":
-            num_spws = len(self.nocross_spws)
+            num_spws = len(self.nocorr_spws)
         else:
             raise ValueError("invalid spwtype: {0}".format(spwtype))
 
@@ -616,7 +616,7 @@ def apply_calibration(cal, fieldtype):
             )
             cal.casa.applycal(
                 vis=cal.vis,
-                spw=",".join(cal.nocross_spws),
+                spw=",".join(cal.nocorr_spws),
                 field=field,
                 calwt=cal.calwt,
                 gaintable=gaintables,
@@ -631,7 +631,7 @@ def apply_calibration(cal, fieldtype):
             )
             cal.casa.applycal(
                 vis=cal.vis,
-                spw=",".join(cal.cross_spws),
+                spw=",".join(cal.corr_spws),
                 field=field,
                 calwt=cal.calwt,
                 gaintable=gaintables,

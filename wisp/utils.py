@@ -137,7 +137,7 @@ def get_smodels(cal):
         # average to get smodel
         spw_q = []
         spw_u = []
-        for spw in cal.cross_spws:
+        for spw in cal.corr_spws:
             # get data
             cal.casa.ms.open(cal.vis)
             cal.casa.ms.selectinit(datadescid=int(spw))
