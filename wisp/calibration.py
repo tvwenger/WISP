@@ -323,7 +323,7 @@ class Calibration:
         )
         self.logger.info("Done")
 
-    def gaintables(self, step, field, spwtype="all"):
+    def gaintables(self, step, field):
         """
         Get the calibration tables up to a given calibration step, excluding
         missing optional tables. Also return the associated fields and spectral
@@ -342,12 +342,6 @@ class Calibration:
                 amplitude tables to be either <field> if <field> is a
                 calibrator or the associated calibrator <field> if <field>
                 is a science target.
-            spwtype :: boolean
-                If 'all', then generate tables for all spectral windows.
-                If 'cross', then generate tables for only those spectral
-                windows with cross-hand data.
-                If 'nocross', then generate tables for only those spectral
-                windows with no cross-hand data.
 
         Returns: gaintables, gainfields, spwmaps
             gaintables :: list of strings
@@ -361,15 +355,7 @@ class Calibration:
         gainfields = []
         spwmaps = []
 
-        # number of applicable spectral windows
-        if spwtype == "all":
-            num_spws = len(self.all_spws)
-        elif spwtype == "cross":
-            num_spws = len(self.corr_spws)
-        elif spwtype == "nocross":
-            num_spws = len(self.nocorr_spws)
-        else:
-            raise ValueError("invalid spwtype: {0}".format(spwtype))
+        num_spws = len(self.all_spws)
 
         # optional tables
         if self.antpos and os.path.exists(self.tables["antpos"]):
@@ -449,17 +435,11 @@ class Calibration:
             spwmaps.append([])
 
         # we're done if we're not doing polarization calibration
-        if (
-            (not self.calpol or spwtype == "nocross") and step == "apply"
-        ) or step == "crosshand_delays":
+        if (not self.calpol and step == "apply") or step == "crosshand_delays":
             return gaintables, gainfields, spwmaps
 
         # add cross-hand delays
-        if (
-            self.calpol
-            and spwtype != "nocross"
-            and os.path.exists(self.tables["crosshand_delays"])
-        ):
+        if self.calpol and os.path.exists(self.tables["crosshand_delays"]):
             gaintables.append(self.tables["crosshand_delays"])
             gainfields.append("")
             # get spw number in calibration table
@@ -476,11 +456,7 @@ class Calibration:
             return gaintables, gainfields, spwmaps
 
         # add polarization leakage
-        if (
-            self.calpol
-            and spwtype != "nocross"
-            and os.path.exists(self.tables["polleak"])
-        ):
+        if self.calpol and os.path.exists(self.tables["polleak"]):
             gaintables.append(self.tables["polleak"])
             gainfields.append("")
             spwmaps.append([])
@@ -488,15 +464,11 @@ class Calibration:
             return gaintables, gainfields, spwmaps
 
         # add polarization angle
-        if (
-            self.calpol
-            and spwtype != "nocross"
-            and os.path.exists(self.tables["polangle"])
-        ):
+        if self.calpol and os.path.exists(self.tables["polangle"]):
             gaintables.append(self.tables["polangle"])
             gainfields.append("")
             spwmaps.append([])
-        if self.calpol and spwtype != "nocross" and step == "apply":
+        if self.calpol and step == "apply":
             return gaintables, gainfields, spwmaps
 
         # we should never get here
@@ -594,51 +566,15 @@ def apply_calibration(cal, fieldtype):
     else:
         raise ValueError("Invalid fieldtype: {0}".format(fieldtype))
     for field in fields:
-        if not cal.calpol:
-            # Apply calibration tables to all spws
-            gaintables, gainfields, spwmaps = cal.gaintables(
-                "apply", field, spwtype="all"
-            )
-            cal.casa.applycal(
-                vis=cal.vis,
-                field=field,
-                calwt=cal.calwt,
-                gaintable=gaintables,
-                gainfield=gainfields,
-                spwmap=spwmaps,
-                parang=False,
-                flagbackup=False,
-            )
-        else:
-            # First apply calibration tables to non cross-hand spws, if any
-            if len(cal.nocorr_spws) > 0:
-                gaintables, gainfields, spwmaps = cal.gaintables(
-                    "apply", field, spwtype="nocross"
-                )
-                cal.casa.applycal(
-                    vis=cal.vis,
-                    spw=",".join(cal.nocorr_spws),
-                    field=field,
-                    calwt=cal.calwt,
-                    gaintable=gaintables,
-                    gainfield=gainfields,
-                    spwmap=spwmaps,
-                    parang=False,
-                    flagbackup=False,
-                )
-            # Then to the cross-hand spws
-            gaintables, gainfields, spwmaps = cal.gaintables(
-                "apply", field, spwtype="cross"
-            )
-            cal.casa.applycal(
-                vis=cal.vis,
-                spw=",".join(cal.corr_spws),
-                field=field,
-                calwt=cal.calwt,
-                gaintable=gaintables,
-                gainfield=gainfields,
-                spwmap=spwmaps,
-                parang=True,
-                flagbackup=False,
-            )
+        gaintables, gainfields, spwmaps = cal.gaintables("apply", field)
+        cal.casa.applycal(
+            vis=cal.vis,
+            field=field,
+            calwt=cal.calwt,
+            gaintable=gaintables,
+            gainfield=gainfields,
+            spwmap=spwmaps,
+            parang=False,
+            flagbackup=False,
+        )
     cal.save_flags("calibrate")
