@@ -59,7 +59,7 @@ def crosshand_delays_table(cal):
             field=field,
             refant=cal.refant,
             solint="inf",
-            combine="scan,spw",
+            combine="scan",
             minblperant=1,
             gaintype="KCROSS",
             parang=cal.calpol,
