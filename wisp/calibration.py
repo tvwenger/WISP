@@ -49,7 +49,7 @@ import time
 import numpy as np
 
 from .calsetup import (
-    get_calibrators,
+    get_calibrators, get_scan_fields,
     get_spw_corrs,
     assign_secondary_calibrators,
 )
@@ -230,10 +230,7 @@ class Calibration:
 
         # get unique field names
         self.logger.info("Looking for field names...")
-        self.all_fields = self.casa.vishead(
-            vis=self.vis, mode="get", hdkey="field"
-        )[0]
-        self.all_fields = list(set(self.all_fields))
+        self.all_fields = list(set(get_scan_fields(self)))
         self.logger.info("Found fields: %s", ", ".join(self.all_fields))
 
         # Get primary calibrator fields
