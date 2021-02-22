@@ -374,14 +374,15 @@ class Calibration:
         gaintables.append(self.tables["delays"])
         gainfields.append("")
         # get spw number in calibration table
-        self.casa.tb.open(self.tables["delays"])
-        cal_spws = np.unique(self.casa.tb.getcol("SPECTRAL_WINDOW_ID"))
-        self.casa.tb.close()
-        if len(cal_spws) > 1:
-            raise ValueError(
-                "Delays calibration table has more than one spectral window"
-            )
-        spwmaps.append([[cal_spws[0]] * num_spws])
+        # self.casa.tb.open(self.tables["delays"])
+        # cal_spws = np.unique(self.casa.tb.getcol("SPECTRAL_WINDOW_ID"))
+        # self.casa.tb.close()
+        # if len(cal_spws) > 1:
+        #    raise ValueError(
+        #        "Delays calibration table has more than one spectral window"
+        #    )
+        # spwmaps.append([[cal_spws[0]] * num_spws])
+        spwmaps.append([])
         if step == "phase_int0":
             return gaintables, gainfields, spwmaps
 
@@ -440,15 +441,16 @@ class Calibration:
             gaintables.append(self.tables["crosshand_delays"])
             gainfields.append("")
             # get spw number in calibration table
-            self.casa.tb.open(self.tables["crosshand_delays"])
-            cal_spws = np.unique(self.casa.tb.getcol("SPECTRAL_WINDOW_ID"))
-            self.casa.tb.close()
-            if len(cal_spws) > 1:
-                raise ValueError(
-                    "Cross-hand delays calibration table has more than one "
-                    "spectral window"
-                )
-            spwmaps.append([[cal_spws[0]] * num_spws])
+            #self.casa.tb.open(self.tables["crosshand_delays"])
+            #cal_spws = np.unique(self.casa.tb.getcol("SPECTRAL_WINDOW_ID"))
+            #self.casa.tb.close()
+            #if len(cal_spws) > 1:
+            #    raise ValueError(
+            #        "Cross-hand delays calibration table has more than one "
+            #        "spectral window"
+            #    )
+            #spwmaps.append([[cal_spws[0]] * num_spws])
+            spwmaps.append([])
         if step == "polleak":
             return gaintables, gainfields, spwmaps
 
