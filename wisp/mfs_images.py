@@ -434,7 +434,7 @@ def mfs_dirty_spws(img, spws):
         img.logger.info("Performing primary beam correction...")
         casa.impbcor(
             imagename="{0}.image".format(imagename),
-            pbimage="{0}.pb.image.sub".format(imagename),
+            pbimage="{0}.pb.image".format(imagename),
             outfile="{0}.pbcor.image".format(imagename),
             overwrite=True,
         )
@@ -621,7 +621,7 @@ def mfs_clean_spws(img, spws, spwtype):
         img.logger.info("Performing primary beam correction...")
         casa.impbcor(
             imagename="{0}.image".format(imagename),
-            pbimage="{0}.pb.image.sub".format(imagename),
+            pbimage="{0}.pb.image".format(imagename),
             outfile="{0}.pbcor.image".format(imagename),
             overwrite=True,
         )
