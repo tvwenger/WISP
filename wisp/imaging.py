@@ -234,7 +234,7 @@ class Imaging:
             my_cont_spws = []
             my_line_spws = []
             for spwchan in spws.split(","):
-                spw, chan = spwchan.split(":")
+                spw = spwchan.split(":")[0]
                 if spw in self.cont_spws.split(","):
                     my_cont_spws.append(spwchan)
                 elif spw in self.line_spws.split(","):
