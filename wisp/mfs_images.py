@@ -48,7 +48,7 @@ def mfs_dirty_cont(img):
     img.logger.info("Generating dirty continuum image (MFS)...")
     cleanspw = ",".join(
         [
-            f"{spw}:{chan}" if chan else spw
+            "{0}:{1}".format(spw, chan) if chan else spw
             for spw, chan in zip(img.cont_spws, img.cont_chans)
         ]
     )
@@ -170,7 +170,7 @@ def mfs_clean_cont(img):
         imagename = imagename + ".uvtaper"
     cleanspw = ",".join(
         [
-            f"{spw}:{chan}" if chan else spw
+            "{0}:{1}".format(spw, chan) if chan else spw
             for spw, chan in zip(img.cont_spws, img.cont_chans)
         ]
     )
@@ -393,7 +393,7 @@ def mfs_dirty_spws(img, spws, chans):
         )
         cleanspw = spw
         if chan:
-            cleanspw = f"{spw}:{chan}"
+            cleanspw = "{0}:{1}".format(spw, chan)
         casa.tclean(
             vis=img.vis,
             imagename=imagename,
@@ -506,7 +506,7 @@ def mfs_clean_spws(img, spws, chans, spwtype):
         imagename = os.path.join(img.outdir, imagename)
         cleanspw = spw
         if chan:
-            cleanspw = f"{spw}:{chan}"
+            cleanspw = "{0}:{1}".format(spw, chan)
         if not img.interactive:
             # Save model if necessary
             savemodel = "none"
