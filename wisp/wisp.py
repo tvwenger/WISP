@@ -222,8 +222,8 @@ def imaging(
       stokes :: string
         The Stokes parameters we're imaging. e.g. 'I' or 'IQUV'
       spws :: string
-        comma-separated list of spws to clean
-        if empty, clean all spws
+        comma-separated list of spws and channels to clean
+        if empty, clean all spws, all channels
       uvrange :: string
         Selection on UV-range
       uvtaper :: boolean

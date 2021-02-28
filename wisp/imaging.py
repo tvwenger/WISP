@@ -233,11 +233,12 @@ class Imaging:
         if spws != "":
             my_cont_spws = []
             my_line_spws = []
-            for spw in spws.split(","):
+            for spwchan in spws.split(","):
+                spw, chan = spwchan.split(":")
                 if spw in self.cont_spws.split(","):
-                    my_cont_spws.append(spw)
+                    my_cont_spws.append(spwchan)
                 elif spw in self.line_spws.split(","):
-                    my_line_spws.append(spw)
+                    my_line_spws.append(spwchan)
                 else:
                     logger.critical(
                         "Spectral window {0} not in config file".format(spw)
@@ -254,7 +255,7 @@ class Imaging:
             good_cont_spws = [
                 spw
                 for spw in self.cont_spws.split(",")
-                if int(spw) in good_spws
+                if int(spw.split(":")[0]) in good_spws
             ]
             self.cont_spws = ",".join(good_cont_spws)
             self.logger.info("Using cont spws: {0}".format(self.cont_spws))
@@ -263,7 +264,7 @@ class Imaging:
             good_line_spws = [
                 spw
                 for spw in self.line_spws.split(",")
-                if int(spw) in good_spws
+                if int(spw.split(":")[0]) in good_spws
             ]
             self.line_spws = ",".join(good_line_spws)
             self.logger.info("Using line spws: {0}".format(self.line_spws))
