@@ -46,10 +46,9 @@ Trey V. Wenger August 2019 - V2.1
 import os
 import time
 
-import numpy as np
-
 from .calsetup import (
-    get_calibrators, get_scan_fields,
+    get_calibrators,
+    get_scan_fields,
     get_spw_corrs,
     assign_secondary_calibrators,
 )
@@ -352,8 +351,6 @@ class Calibration:
         gainfields = []
         spwmaps = []
 
-        num_spws = len(self.all_spws)
-
         # optional tables
         if self.antpos and os.path.exists(self.tables["antpos"]):
             gaintables.append(self.tables["antpos"])
@@ -441,15 +438,15 @@ class Calibration:
             gaintables.append(self.tables["crosshand_delays"])
             gainfields.append("")
             # get spw number in calibration table
-            #self.casa.tb.open(self.tables["crosshand_delays"])
-            #cal_spws = np.unique(self.casa.tb.getcol("SPECTRAL_WINDOW_ID"))
-            #self.casa.tb.close()
-            #if len(cal_spws) > 1:
+            # self.casa.tb.open(self.tables["crosshand_delays"])
+            # cal_spws = np.unique(self.casa.tb.getcol("SPECTRAL_WINDOW_ID"))
+            # self.casa.tb.close()
+            # if len(cal_spws) > 1:
             #    raise ValueError(
             #        "Cross-hand delays calibration table has more than one "
             #        "spectral window"
             #    )
-            #spwmaps.append([[cal_spws[0]] * num_spws])
+            # spwmaps.append([[cal_spws[0]] * num_spws])
             spwmaps.append([])
         if step == "polleak":
             return gaintables, gainfields, spwmaps

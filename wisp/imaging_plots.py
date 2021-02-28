@@ -51,9 +51,7 @@ def contplot(img):
 
     # Loop over all plot filenames
     goodplots = []
-    spws = ["cont"] + natural_sort(
-        img.cont_spws.split(",") + img.line_spws.split(",")
-    )
+    spws = ["cont"] + natural_sort(img.cont_spws + img.line_spws)
     for spw in spws:
         if spw != "cont":
             spw = "spw{0}".format(spw)
@@ -330,7 +328,7 @@ def lineplot(img):
 
     # Loop over spws
     goodplots = []
-    for spw in img.line_spws.split(","):
+    for spw in img.line_spws:
         # check that this spectral window exists
         fname = "{0}.spw{1}.{2}.channel.clean.image.fits".format(
             img.field, spw, img.stokes

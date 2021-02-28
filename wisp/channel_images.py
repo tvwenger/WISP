@@ -41,8 +41,8 @@ def grid_parameters(img, spws):
     Inputs:
         img :: Imaging object
             The Imaging object
-        spws :: string
-            Comma-separated string of spectral windows to image
+        spws :: list
+            spectral windows to image
 
     Returns: start, width, nchans
         start :: string
@@ -58,9 +58,9 @@ def grid_parameters(img, spws):
     width = None
     if img.cp["width"]:
         width = "{0}km/s".format(img.cp["width"])
-    nchans = [None for spw in spws.split(",")]
+    nchans = [None for spw in spws]
     if img.cp["nchan"]:
-        nchans = [int(img.cp["nchan"]) for spw in spws.split(",")]
+        nchans = [int(img.cp["nchan"]) for spw in spws]
     #
     # If start and end parameters are set, determine nchan
     #
@@ -76,7 +76,7 @@ def grid_parameters(img, spws):
                     / float(img.cp["width"])
                 )
                 + 1
-                for spw in spws.split(",")
+                for spw in spws
             ]
         else:
             #
@@ -84,7 +84,7 @@ def grid_parameters(img, spws):
             #
             nchans = []
             casa.msmd.open(img.vis)
-            for spw in spws.split(","):
+            for spw in spws:
                 center_hz = casa.msmd.meanfreq(int(spw))
                 width_hz = np.mean(casa.msmd.chanwidths(int(spw)))
                 width_kms = width_hz / center_hz * 299792.458  # km/s
@@ -115,17 +115,17 @@ def channel_dirty_spws(img, spws, spwtype):
     """
     # Set channel parameters
     if spwtype == "cont":
-        restfreqs = [None for spw in spws.split(",")]
+        restfreqs = [None for spw in spws]
         start = None
         width = img.cp["contwidth"]
-        nchans = [None for spw in spws.split(",")]
+        nchans = [None for spw in spws]
         outframe = img.cp["contoutframe"]
         veltype = None
         interpolation = None
     elif spwtype == "line":
         spw_inds = [
             img.config.get("Spectral Windows", "Line").split(",").index(spw)
-            for spw in spws.split(",")
+            for spw in spws
         ]
         restfreqs = [
             img.config.get("Clean", "restfreqs").split(",")[spw_ind]
@@ -142,7 +142,7 @@ def channel_dirty_spws(img, spws, spwtype):
         raise ValueError("Invalid spwtype")
 
     # Loop over spws
-    for spw, restfreq, nchan in zip(spws.split(","), restfreqs, nchans):
+    for spw, restfreq, nchan in zip(spws, restfreqs, nchans):
         imagename = "{0}.spw{1}.{2}.channel".format(img.field, spw, img.stokes)
         if img.uvtaper:
             imagename = imagename + ".uvtaper"
@@ -251,17 +251,17 @@ def channel_clean_spws(img, spws, spwtype):
     # Set channel parameters
     #
     if spwtype == "cont":
-        restfreqs = [None for spw in spws.split(",")]
+        restfreqs = [None for spw in spws]
         start = None
         width = img.cp["contwidth"]
-        nchans = [None for spw in spws.split(",")]
+        nchans = [None for spw in spws]
         outframe = img.cp["contoutframe"]
         veltype = None
         interpolation = None
     elif spwtype == "line":
         spw_inds = [
             img.config.get("Spectral Windows", "Line").split(",").index(spw)
-            for spw in spws.split(",")
+            for spw in spws
         ]
         restfreqs = [
             img.config.get("Clean", "restfreqs").split(",")[spw_ind]
@@ -278,7 +278,7 @@ def channel_clean_spws(img, spws, spwtype):
         raise ValueError("Invalid spwtype")
 
     # Loop over spws
-    for spw, restfreq, nchan in zip(spws.split(","), restfreqs, nchans):
+    for spw, restfreq, nchan in zip(spws, restfreqs, nchans):
         # Get niters
         if nchan is None:
             # get number of channels from dirty image

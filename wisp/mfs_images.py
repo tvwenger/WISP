@@ -46,12 +46,18 @@ def mfs_dirty_cont(img):
     if img.uvtaper:
         imagename = imagename + ".uvtaper"
     img.logger.info("Generating dirty continuum image (MFS)...")
+    cleanspw = ",".join(
+        [
+            f"{spw}:{chan}" if chan else spw
+            for spw, chan in zip(img.cont_spws, img.cont_chans)
+        ]
+    )
     casa.tclean(
         vis=img.vis,
         imagename=os.path.join(img.outdir, imagename),
         phasecenter=img.cp["phasecenter"],
         field=img.field,
-        spw=img.cont_spws,
+        spw=cleanspw,
         gridder=img.cp["gridder"],
         wprojplanes=img.cp["wprojplanes"],
         specmode="mfs",
@@ -82,12 +88,12 @@ def mfs_dirty_cont(img):
     spwlist = [
         int(spw)
         for chan in img.cp["contpbchan"].split(",")
-        for spw in img.cont_spws.split(",")
+        for spw in img.cont_spws
     ]
     chanlist = [
         int(chan)
         for chan in img.cp["contpbchan"].split(",")
-        for spw in img.cont_spws.split(",")
+        for spw in img.cont_spws
     ]
     weightlist = [1.0 for _ in spwlist]
     casa.widebandpbcor(
@@ -162,6 +168,12 @@ def mfs_clean_cont(img):
     imagename = "{0}.cont.{1}.mfs".format(img.field, img.stokes)
     if img.uvtaper:
         imagename = imagename + ".uvtaper"
+    cleanspw = ",".join(
+        [
+            f"{spw}:{chan}" if chan else spw
+            for spw, chan in zip(img.cont_spws, img.cont_chans)
+        ]
+    )
     if not img.interactive:
         savemodel = "none"
         if img.savemodel == "light":
@@ -172,7 +184,7 @@ def mfs_clean_cont(img):
             imagename=os.path.join(img.outdir, imagename),
             phasecenter=img.cp["phasecenter"],
             field=img.field,
-            spw=img.cont_spws,
+            spw=cleanspw,
             gridder=img.cp["gridder"],
             wprojplanes=img.cp["wprojplanes"],
             specmode="mfs",
@@ -250,7 +262,7 @@ def mfs_clean_cont(img):
         imagename=os.path.join(img.outdir, imagename),
         phasecenter=img.cp["phasecenter"],
         field=img.field,
-        spw=img.cont_spws,
+        spw=cleanspw,
         gridder=img.cp["gridder"],
         wprojplanes=img.cp["wprojplanes"],
         specmode="mfs",
@@ -296,12 +308,12 @@ def mfs_clean_cont(img):
     spwlist = [
         int(spw)
         for chan in img.cp["contpbchan"].split(",")
-        for spw in img.cont_spws.split(",")
+        for spw in img.cont_spws
     ]
     chanlist = [
         int(chan)
         for chan in img.cp["contpbchan"].split(",")
-        for spw in img.cont_spws.split(",")
+        for spw in img.cont_spws
     ]
     weightlist = [1.0 for _ in spwlist]
     casa.widebandpbcor(
@@ -359,19 +371,19 @@ def mfs_clean_cont(img):
     img.logger.info("Done.")
 
 
-def mfs_dirty_spws(img, spws):
+def mfs_dirty_spws(img, spws, chans):
     """
     Dirty image each supplied spw (MFS)
 
     Inputs:
         img :: Imaging object
             The Imaging object
-        spws :: string
-            comma-separated list of spws to image
+        spws, chans :: lists
+            spectral windows and channels to image
 
     Returns: Nothing
     """
-    for spw in spws.split(","):
+    for spw, chan in zip(spws, chans):
         imagename = "{0}.spw{1}.{2}.mfs".format(img.field, spw, img.stokes)
         if img.uvtaper:
             imagename = imagename + ".uvtaper"
@@ -379,12 +391,15 @@ def mfs_dirty_spws(img, spws):
         img.logger.info(
             "Generating dirty image of spw {0} (MFS)...".format(spw)
         )
+        cleanspw = spw
+        if chan:
+            cleanspw = f"{spw}:{chan}"
         casa.tclean(
             vis=img.vis,
             imagename=imagename,
             phasecenter=img.cp["phasecenter"],
             field=img.field,
-            spw=spw,
+            spw=cleanspw,
             specmode="mfs",
             gridder=img.cp["gridder"],
             wprojplanes=img.cp["wprojplanes"],
@@ -469,26 +484,29 @@ def mfs_dirty_spws(img, spws):
         img.logger.info("Done.")
 
 
-def mfs_clean_spws(img, spws, spwtype):
+def mfs_clean_spws(img, spws, chans, spwtype):
     """
     Clean each supplied spw (MFS)
 
     Inputs:
         img :: Imaging object
             The Imaging object
-        spws :: string
-            comma-separated string of spws to image
+        spws, chans :: lists
+            spectral windows and channels to image
         spwtype :: string
             'line' or 'cont', to determine which clean params to use
 
     Returns: Nothing
     """
-    for spw in spws.split(","):
+    for spw, chan in zip(spws, chans):
         # If not interactive, Lightly clean to get threshold
         imagename = "{0}.spw{1}.{2}.mfs".format(img.field, spw, img.stokes)
         if img.uvtaper:
             imagename = imagename + ".uvtaper"
         imagename = os.path.join(img.outdir, imagename)
+        cleanspw = spw
+        if chan:
+            cleanspw = f"{spw}:{chan}"
         if not img.interactive:
             # Save model if necessary
             savemodel = "none"
@@ -500,7 +518,7 @@ def mfs_clean_spws(img, spws, spwtype):
                 imagename=imagename,
                 phasecenter=img.cp["phasecenter"],
                 field=img.field,
-                spw=spw,
+                spw=cleanspw,
                 specmode="mfs",
                 gridder=img.cp["gridder"],
                 wprojplanes=img.cp["wprojplanes"],
@@ -579,7 +597,7 @@ def mfs_clean_spws(img, spws, spwtype):
             imagename=imagename,
             field=img.field,
             phasecenter=img.cp["phasecenter"],
-            spw=spw,
+            spw=cleanspw,
             gridder=img.cp["gridder"],
             wprojplanes=img.cp["wprojplanes"],
             specmode="mfs",

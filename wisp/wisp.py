@@ -323,17 +323,17 @@ def imaging(
         elif answer == "1":
             mfs_clean_cont(img)
         elif answer == "2":
-            mfs_dirty_spws(img, img.cont_spws)
+            mfs_dirty_spws(img, img.cont_spws, img.cont_chans)
         elif answer == "3":
-            mfs_clean_spws(img, img.cont_spws, "cont")
+            mfs_clean_spws(img, img.cont_spws, img.cont_chans, "cont")
         elif answer == "4":
             channel_dirty_spws(img, img.cont_spws, "cont")
         elif answer == "5":
             channel_clean_spws(img, img.cont_spws, "cont")
         elif answer == "6":
-            mfs_dirty_spws(img, img.line_spws)
+            mfs_dirty_spws(img, img.line_spws, img.line_chans)
         elif answer == "7":
-            mfs_clean_spws(img, img.line_spws, "line")
+            mfs_clean_spws(img, img.line_spws, img.line_chans, "line")
         elif answer == "8":
             channel_dirty_spws(img, img.line_spws, "line")
         elif answer == "9":

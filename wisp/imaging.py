@@ -114,8 +114,10 @@ class Imaging:
         self.parallel = parallel
 
         # Get continuum and line spws from configuration file
-        self.cont_spws = self.config.get("Spectral Windows", "Continuum")
-        self.line_spws = self.config.get("Spectral Windows", "Line")
+        self.cont_spws = self.config.get(
+            "Spectral Windows", "Continuum"
+        ).split(",")
+        self.line_spws = self.config.get("Spectral Windows", "Line").split(",")
         self.logger.info("Found continuum spws: {0}".format(self.cont_spws))
         self.logger.info("Found line spws: {0}".format(self.line_spws))
 
@@ -232,19 +234,28 @@ class Imaging:
         # Determine which spectral windows we're imaging
         if spws != "":
             my_cont_spws = []
+            my_cont_chans = []
             my_line_spws = []
+            my_line_chans = []
             for spwchan in spws.split(","):
-                spw = spwchan.split(":")[0]
-                if spw in self.cont_spws.split(","):
-                    my_cont_spws.append(spwchan)
-                elif spw in self.line_spws.split(","):
-                    my_line_spws.append(spwchan)
+                parts = spwchan.split(":")
+                spw = parts[0]
+                if len(parts) > 1:
+                    chan = parts[1]
+                if spw in self.cont_spws:
+                    my_cont_spws.append(spw)
+                    my_cont_chans.append(chan)
+                elif spw in self.line_spws:
+                    my_line_spws.append(spw)
+                    my_line_chans.append(chan)
                 else:
                     logger.critical(
                         "Spectral window {0} not in config file".format(spw)
                     )
-            self.cont_spws = ",".join(my_cont_spws)
-            self.line_spws = ",".join(my_line_spws)
+            self.cont_spws = my_cont_spws
+            self.cont_chans = my_cont_chans
+            self.line_spws = my_line_spws
+            self.line_chans = my_line_chans
 
         # Determine which spws actually have data
         casa.msmd.open(self.vis)
@@ -252,19 +263,11 @@ class Imaging:
         casa.msmd.close()
         if self.cont_spws:
             self.logger.info("Checking cont spws...")
-            good_cont_spws = [
-                spw
-                for spw in self.cont_spws.split(",")
-                if int(spw.split(":")[0]) in good_spws
-            ]
+            good_cont_spws = [s for s in self.cont_spws if int(s) in good_spws]
             self.cont_spws = ",".join(good_cont_spws)
             self.logger.info("Using cont spws: {0}".format(self.cont_spws))
         if self.line_spws:
             self.logger.info("Checking line spws...")
-            good_line_spws = [
-                spw
-                for spw in self.line_spws.split(",")
-                if int(spw.split(":")[0]) in good_spws
-            ]
+            good_line_spws = [s for s in self.line_spws if int(s) in good_spws]
             self.line_spws = ",".join(good_line_spws)
             self.logger.info("Using line spws: {0}".format(self.line_spws))
