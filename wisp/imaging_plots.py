@@ -433,7 +433,7 @@ def lineplot(img):
                 ax = plt.subplot(projection=wcs.sub(["celestial"]))
                 ax.set_title("{0} - {1}".format(title, stokes))
                 center_chan = hdu.data.shape[1] / 2
-                aximg = ax.imshow(
+                cax = ax.imshow(
                     hdu.data[ind, center_chan],
                     origin="lower",
                     interpolation="none",
@@ -504,7 +504,7 @@ def lineplot(img):
                     ax.add_patch(ellipse)
 
                 # Plot colorbar
-                cbar = fig.colorbar(aximg, fraction=0.046, pad=0.04)
+                cbar = fig.colorbar(cax, fraction=0.046, pad=0.04)
                 cbar.set_label(label)
 
                 # Re-scale to fit, then save
