@@ -266,11 +266,9 @@ class Imaging:
         casa.msmd.close()
         if self.cont_spws:
             self.logger.info("Checking cont spws...")
-            good_cont_spws = [s for s in self.cont_spws if int(s) in good_spws]
-            self.cont_spws = ",".join(good_cont_spws)
+            self.cont_spws = [s for s in self.cont_spws if int(s) in good_spws]
             self.logger.info("Using cont spws: {0}".format(self.cont_spws))
         if self.line_spws:
             self.logger.info("Checking line spws...")
-            good_line_spws = [s for s in self.line_spws if int(s) in good_spws]
-            self.line_spws = ",".join(good_line_spws)
+            self.line_spws = [s for s in self.line_spws if int(s) in good_spws]
             self.logger.info("Using line spws: {0}".format(self.line_spws))
