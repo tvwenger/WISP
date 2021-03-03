@@ -117,8 +117,14 @@ class Imaging:
         self.cont_spws = self.config.get(
             "Spectral Windows", "Continuum"
         ).split(",")
+        self.cont_spws = [
+            cont_spw for cont_spw in self.cont_spws if cont_spw != ""
+        ]
         self.cont_chans = ["" for _ in self.cont_spws]
         self.line_spws = self.config.get("Spectral Windows", "Line").split(",")
+        self.line_spws = [
+            line_spw for line_spw in self.line_spws if line_spw != ""
+        ]
         self.line_chans = ["" for _ in self.cont_spws]
         self.logger.info("Found continuum spws: {0}".format(self.cont_spws))
         self.logger.info("Found line spws: {0}".format(self.line_spws))
