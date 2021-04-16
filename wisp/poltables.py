@@ -38,12 +38,12 @@ def crosshand_delays_table(cal):
 
     Returns: Nothing
     """
-    fields = cal.pol_leak_cals
+    fields = cal.pol_angle_cals
     spw = ",".join(cal.corr_spws)
 
     cal.logger.info(
-        "Calculating cross-hand delay calibration table for polarized "
-        "leakage calibrators..."
+        "Calculating cross-hand delay calibration table for polarization "
+        "angle calibrators..."
     )
     if os.path.isdir(cal.tables["crosshand_delays"]):
         cal.casa.rmtables(cal.tables["crosshand_delays"])
