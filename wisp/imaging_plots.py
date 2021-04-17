@@ -57,9 +57,7 @@ def contplot(img):
             spw = "spw{0}".format(spw)
 
         # check that this spectral window exists
-        fname = "{0}.{1}.{2}.mfs.clean.image.fits".format(
-            img.field, spw, img.stokes
-        )
+        fname = "{0}.{1}.{2}.mfs.clean.image.fits".format(img.field, spw, img.stokes)
         if img.uvtaper:
             fname = "{0}.{1}.{2}.mfs.uvtaper.clean.image.fits".format(
                 img.field, spw, img.stokes
@@ -116,12 +114,8 @@ def contplot(img):
             ]
         else:
             fitsfiles = [
-                "{0}.{1}.{2}.mfs.dirty.image.fits".format(
-                    img.field, spw, img.stokes
-                ),
-                "{0}.{1}.{2}.mfs.clean.image.fits".format(
-                    img.field, spw, img.stokes
-                ),
+                "{0}.{1}.{2}.mfs.dirty.image.fits".format(img.field, spw, img.stokes),
+                "{0}.{1}.{2}.mfs.clean.image.fits".format(img.field, spw, img.stokes),
                 "{0}.{1}.{2}.mfs.clean.residual.fits".format(
                     img.field, spw, img.stokes
                 ),
@@ -130,18 +124,10 @@ def contplot(img):
                 ),
             ]
             maskfiles = [
-                "{0}.{1}.{2}.mfs.clean.mask.fits".format(
-                    img.field, spw, img.stokes
-                ),
-                "{0}.{1}.{2}.mfs.clean.mask.fits".format(
-                    img.field, spw, img.stokes
-                ),
-                "{0}.{1}.{2}.mfs.clean.mask.fits".format(
-                    img.field, spw, img.stokes
-                ),
-                "{0}.{1}.{2}.mfs.clean.mask.fits".format(
-                    img.field, spw, img.stokes
-                ),
+                "{0}.{1}.{2}.mfs.clean.mask.fits".format(img.field, spw, img.stokes),
+                "{0}.{1}.{2}.mfs.clean.mask.fits".format(img.field, spw, img.stokes),
+                "{0}.{1}.{2}.mfs.clean.mask.fits".format(img.field, spw, img.stokes),
+                "{0}.{1}.{2}.mfs.clean.mask.fits".format(img.field, spw, img.stokes),
             ]
             titles = [
                 "{0} - {1} - Dirty".format(img.field, spw),
@@ -256,9 +242,7 @@ def contplot(img):
 
                 # Re-scale to fit, then save
                 fname = fitsfile.replace(".fits", ".{0}.pdf".format(stokes))
-                fig.savefig(
-                    os.path.join(img.outdir, fname), bbox_inches="tight"
-                )
+                fig.savefig(os.path.join(img.outdir, fname), bbox_inches="tight")
                 plt.close(fig)
                 plt.ion()
                 goodplots.append(fname)
@@ -280,10 +264,7 @@ def contplot(img):
             f.write(r"\begin{figure}" + "\n")
             f.write(r"\centering" + "\n")
             f.write(
-                r"\includegraphics[width=0.45\textwidth]{"
-                + outplots[i]
-                + r"}"
-                + "\n"
+                r"\includegraphics[width=0.45\textwidth]{" + outplots[i] + r"}" + "\n"
             )
             f.write(
                 r"\includegraphics[width=0.45\textwidth]{"
@@ -418,9 +399,7 @@ def lineplot(img):
         # Generate figures for each Stokes parameter
         for ind, stokes in enumerate(img.stokes):
             # Loop over figures
-            for fitsfile, title, label, vlim in zip(
-                fitsfiles, titles, labels, vlims
-            ):
+            for fitsfile, title, label, vlim in zip(fitsfiles, titles, labels, vlims):
 
                 # Open fits file, generate WCS
                 hdulist = fits.open(os.path.join(img.outdir, fitsfile))
@@ -509,19 +488,15 @@ def lineplot(img):
 
                 # Re-scale to fit, then save
                 fname = fitsfile.replace(".fits", ".{0}.pdf".format(stokes))
-                fig.savefig(
-                    os.path.join(img.outdir, fname), bbox_inches="tight"
-                )
+                fig.savefig(os.path.join(img.outdir, fname), bbox_inches="tight")
                 plt.close(fig)
                 plt.ion()
                 goodplots.append(fname)
 
             # Generate spectrum
             if img.uvtaper:
-                fitsfile = (
-                    "{0}.spw{1}.{2}.channel.uvtaper.clean.image.fits".format(
-                        img.field, spw, img.stokes
-                    )
+                fitsfile = "{0}.spw{1}.{2}.channel.uvtaper.clean.image.fits".format(
+                    img.field, spw, img.stokes
                 )
             else:
                 fitsfile = "{0}.spw{1}.{2}.channel.clean.image.fits".format(
@@ -532,8 +507,7 @@ def lineplot(img):
             isnan = spec == 0.0
             spec[isnan] = np.nan
             velo = (
-                np.arange(len(spec)) * hdu.header["CDELT3"]
-                + hdu.header["CRVAL3"]
+                np.arange(len(spec)) * hdu.header["CDELT3"] + hdu.header["CRVAL3"]
             ) / 1000.0
 
             # Generate figure
@@ -548,14 +522,10 @@ def lineplot(img):
             ax.set_ylim(np.nanmin(spec) - ybuff, np.nanmax(spec) + ybuff)
             if img.uvtaper:
                 ax.set_title(
-                    "{0} - {1} - Taper/Center - {2}".format(
-                        img.field, spw, stokes
-                    )
+                    "{0} - {1} - Taper/Center - {2}".format(img.field, spw, stokes)
                 )
             else:
-                ax.set_title(
-                    "{0} - {1} - Center - {2}".format(img.field, spw, stokes)
-                )
+                ax.set_title("{0} - {1} - Center - {2}".format(img.field, spw, stokes))
             ax.grid(False)
             fig.tight_layout()
             fname = fitsfile.replace(".fits", ".{0}.spec.pdf".format(stokes))
@@ -579,11 +549,7 @@ def lineplot(img):
         for i in range(0, len(goodplots), 5):
             f.write(r"\begin{figure}" + "\n")
             f.write(r"\centering" + "\n")
-            f.write(
-                r"\includegraphics[width=0.45\textwidth]{"
-                + goodplots[i]
-                + "}\n"
-            )
+            f.write(r"\includegraphics[width=0.45\textwidth]{" + goodplots[i] + "}\n")
             f.write(
                 r"\includegraphics[width=0.45\textwidth]{"
                 + goodplots[i + 1]
@@ -591,9 +557,7 @@ def lineplot(img):
                 + "\n"
             )
             f.write(
-                r"\includegraphics[width=0.45\textwidth]{"
-                + goodplots[i + 2]
-                + "}\n"
+                r"\includegraphics[width=0.45\textwidth]{" + goodplots[i + 2] + "}\n"
             )
             f.write(
                 r"\includegraphics[width=0.45\textwidth]{"
@@ -602,9 +566,7 @@ def lineplot(img):
                 + "\n"
             )
             f.write(
-                r"\includegraphics[width=0.45\textwidth]{"
-                + goodplots[i + 4]
-                + "}\n"
+                r"\includegraphics[width=0.45\textwidth]{" + goodplots[i + 4] + "}\n"
             )
             f.write(r"\end{figure}" + "\n")
             f.write(r"\clearpage" + "\n")

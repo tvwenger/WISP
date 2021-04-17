@@ -45,10 +45,14 @@ from .imaging_plots import contplot, lineplot
 
 import __main__ as casa
 
+# Catch raw_input in python 3
+try:
+    input = raw_input
+except NameError:
+    raw_input = input
+
 # load logging configuration file
-logging.config.fileConfig(
-    os.path.join(os.path.dirname(__file__), "logging.conf")
-)
+logging.config.fileConfig(os.path.join(os.path.dirname(__file__), "logging.conf"))
 
 
 def calibrate(
@@ -148,8 +152,7 @@ def calibrate(
             print("2. Generate plotms figures for calibrator fields")
             print("3. Manually flag calibrator fields")
             print(
-                "4. Calculate and apply calibration solutions to calibrator "
-                "fields"
+                "4. Calculate and apply calibration solutions to calibrator " "fields"
             )
             print("5. Apply calibration solutions to science fields")
             print("6. Auto-flag science fields")
@@ -299,10 +302,7 @@ def imaging(
                 "0. Dirty image combined continuum spws "
                 "(MFS; multi-term; multi-scale)"
             )
-            print(
-                "1. Clean combined continuum spws "
-                "(MFS; multi-term; multi-scale)"
-            )
+            print("1. Clean combined continuum spws " "(MFS; multi-term; multi-scale)")
             print("2. Dirty image each continuum spw (MFS; multi-scale)")
             print("3. Clean each continuum spw (MFS; multi-scale)")
             print("4. Dirty image each continuum spw (channel; multi-scale)")

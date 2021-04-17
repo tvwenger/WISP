@@ -100,9 +100,7 @@ def generate_pdf(location):
                 fout.write(r"\end{figure}" + "\n")
                 fout.write(r"\begin{figure}" + "\n")
                 fout.write(r"\centering" + "\n")
-            fout.write(
-                r"\includegraphics[width=0.45\textwidth]{" + fname + "}" + "\n"
-            )
+            fout.write(r"\includegraphics[width=0.45\textwidth]{" + fname + "}" + "\n")
             iplot += 1
         fout.write(r"\end{figure}" + "\n")
         fout.write(r"\end{document}" + "\n")

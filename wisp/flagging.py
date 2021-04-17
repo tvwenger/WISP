@@ -29,6 +29,12 @@ import pickle
 
 import numpy as np
 
+# Catch raw_input in python 3
+try:
+    input = raw_input
+except NameError:
+    raw_input = input
+
 
 def preliminary_flagging(cal):
     """
@@ -85,9 +91,7 @@ def preliminary_flagging(cal):
     # Flag antennas from configuration file
     antenna = cal.config.get("Flags", "Antenna")
     if antenna != "":
-        cal.logger.info(
-            "Flagging antennas from configuration " "file: %s", antenna
-        )
+        cal.logger.info("Flagging antennas from configuration " "file: %s", antenna)
         cal.casa.flagdata(
             vis=cal.vis,
             mode="manual",
@@ -156,8 +160,7 @@ def preliminary_flagging(cal):
     badchans = badchans.split(",")
     if badchans[0] != "":
         cal.logger.info(
-            "Interpolating through line channels from "
-            "configuration file: %s",
+            "Interpolating through line channels from " "configuration file: %s",
             ";".join(badchans),
         )
         line_spws = [int(i) for i in cal.line_spws]
@@ -170,8 +173,7 @@ def preliminary_flagging(cal):
     badchans = badchans.split(",")
     if badchans[0] != "":
         cal.logger.info(
-            "Interpolating through continuum channels "
-            "from configuration file: %s",
+            "Interpolating through continuum channels " "from configuration file: %s",
             ";".join(badchans),
         )
         cont_spws = [int(i) for i in cal.cont_spws]
@@ -291,9 +293,7 @@ def manual_flag(cal, fieldtype):
             if plotid >= num_plots:
                 print("Invalid Plot ID")
                 continue
-            title = "PlotID: {0} Field: {1}".format(
-                plotid, plots[plotid]["field"]
-            )
+            title = "PlotID: {0} Field: {1}".format(plotid, plots[plotid]["field"])
             cal.casa.plotms(
                 vis=cal.vis,
                 xaxis=plots[plotid]["xaxis"],
@@ -400,8 +400,7 @@ def flag(cal, fieldtype):
         if answer.lower() == "y":
             cal.logger.info("Executing:")
             cal.logger.info(
-                "flagdata(vis='%s',mode='list',"
-                "flagbackup=False,extendflags=False,",
+                "flagdata(vis='%s',mode='list'," "flagbackup=False,extendflags=False,",
                 cal.vis,
             )
             for icmd, cmd in enumerate(flag_commands):

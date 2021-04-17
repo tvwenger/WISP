@@ -27,6 +27,55 @@ Trey V. Wenger August 2019 - V2.1
 import os
 
 
+def polleak_setjy(cal):
+    """
+    Set flux model for polarization leakage calibrator.
+
+    Inputs:
+        cal :: Calibration object
+            The calibration object
+
+    Returns: Nothing
+    """
+    fields = cal.pol_leak_cals
+    if cal.flux_models is None:
+        cal.logger.critical("No flux models!")
+        raise ValueError("No flux models!")
+
+    cal.logger.info("Setting flux model for polarization leakage calibrators")
+    for field in fields:
+        if field in cal.flux_cals:
+            cal.logger.info("Skipping flux calibrator {0}".format(field))
+            continue
+
+        # get flux model
+        fluxdensity = None
+        spix = None
+        reffreq = None
+        for value in cal.flux_models.values():
+            if isinstance(value, dict):
+                if value["fieldName"] == field:
+                    fluxdensity = value["fitFluxd"]
+                    spix = value["spidx"]
+                    reffreq = value["fitRefFreq"]
+                    break
+        if fluxdensity is None:
+            cal.logger.critical("No flux model found: {0}".format(field))
+            raise ValueError("No flux model found: {0}".format(field))
+
+        # set flux model
+        cal.casa.setjy(
+            vis=cal.vis,
+            field=field,
+            scalebychan=True,
+            standard="manual",
+            fluxdensity=fluxdensity,
+            spix=spix,
+            reffreq=reffreq,
+        )
+    cal.logger.info("Done.")
+
+
 def crosshand_delays_table(cal):
     """
     Derive cross-hand delay calibration table using a bright,
@@ -48,9 +97,7 @@ def crosshand_delays_table(cal):
     if os.path.isdir(cal.tables["crosshand_delays"]):
         cal.casa.rmtables(cal.tables["crosshand_delays"])
     for field in fields:
-        gaintables, gainfields, spwmaps = cal.gaintables(
-            "crosshand_delays", field
-        )
+        gaintables, gainfields, spwmaps = cal.gaintables("crosshand_delays", field)
         append = os.path.exists(cal.tables["crosshand_delays"])
         cal.casa.gaincal(
             vis=cal.vis,

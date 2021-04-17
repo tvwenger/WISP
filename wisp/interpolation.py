@@ -57,9 +57,7 @@ def interpolate_channels(cal, spws, chans):
         # is one that needs interpolated
         if spwinfo[datadescid]["SpectralWindowId"] not in spws:
             continue
-        cal.logger.info(
-            "Working on spw %d", spwinfo[datadescid]["SpectralWindowId"]
-        )
+        cal.logger.info("Working on spw %d", spwinfo[datadescid]["SpectralWindowId"])
         nchans = spwinfo[datadescid]["NumChan"]
         chans = np.arange(nchans)
         mask = np.zeros(nchans, dtype=bool)

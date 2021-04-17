@@ -38,9 +38,7 @@ def set_cal_models(cal):
     Returns: Nothing
     """
     cal.logger.info("Setting flux and polarization calibrator flux models...")
-    for calibrator in list(
-        set(cal.flux_cals + cal.pol_leak_cals + cal.pol_angle_cals)
-    ):
+    for calibrator in list(set(cal.flux_cals + cal.pol_leak_cals + cal.pol_angle_cals)):
         # If calibrator model is supplied in config, use that
         cal_models = cal.config.get("Calibrator Models", "Name").splitlines()
         if calibrator in cal_models:
@@ -93,9 +91,7 @@ def set_cal_models(cal):
             cal.casa.setjy(vis=cal.vis, field=calibrator, scalebychan=True)
 
         else:
-            cal.logger.warn(
-                "Not setting a flux model for {0}".format(calibrator)
-            )
+            cal.logger.warn("Not setting a flux model for {0}".format(calibrator))
     cal.logger.info("Done.")
 
 
@@ -123,9 +119,7 @@ def initial_tables(cal):
     # Correct for gaincurve and antenna efficiencies
     if cal.gaincurve:
         caltable = "gaincurve.cal"
-        cal.logger.info(
-            "Calculating gain curve and antenna " "efficiencies..."
-        )
+        cal.logger.info("Calculating gain curve and antenna " "efficiencies...")
         if os.path.isdir(caltable):
             cal.casa.rmtables(caltable)
         cal.casa.gencal(vis=cal.vis, caltable=caltable, caltype="gceff")
@@ -169,9 +163,7 @@ def prebandpass_primary_tables(cal, use_smodel=False):
     fields = cal.pri_cals
 
     # Delay calibration
-    cal.logger.info(
-        "Calculating delay calibration table for primary calibrators..."
-    )
+    cal.logger.info("Calculating delay calibration table for primary calibrators...")
     if os.path.isdir(cal.tables["delays"]):
         cal.casa.rmtables(cal.tables["delays"])
     for field in fields:
@@ -231,12 +223,8 @@ def prebandpass_primary_tables(cal, use_smodel=False):
             smodel=smodel,
         )
     if not os.path.isdir(cal.tables["phase_int0"]):
-        cal.logger.critical(
-            "Problem with integration-timescale phase calibration"
-        )
-        raise ValueError(
-            "Problem with integration-timescale phase calibration!"
-        )
+        cal.logger.critical("Problem with integration-timescale phase calibration")
+        raise ValueError("Problem with integration-timescale phase calibration!")
     cal.logger.info("Done.")
 
 
@@ -254,9 +242,7 @@ def bandpass_table(cal, use_smodel=False):
     """
     fields = cal.pri_cals
 
-    cal.logger.info(
-        "Calculating bandpass calibration table for primary calibrators..."
-    )
+    cal.logger.info("Calculating bandpass calibration table for primary calibrators...")
     if os.path.isdir(cal.tables["bandpass"]):
         cal.casa.rmtables(cal.tables["bandpass"])
     for field in fields:
@@ -334,12 +320,8 @@ def gain_tables(cal, use_smodel=False):
             smodel=smodel,
         )
     if not os.path.isdir(cal.tables["phase_int1"]):
-        cal.logger.critical(
-            "Problem with integration-timescale phase calibration"
-        )
-        raise ValueError(
-            "Problem with integration-timescale phase calibration!"
-        )
+        cal.logger.critical("Problem with integration-timescale phase calibration")
+        raise ValueError("Problem with integration-timescale phase calibration!")
     cal.logger.info("Done.")
 
     # scan timescale phase calibration
@@ -426,14 +408,15 @@ def flux_table(cal):
     cal.logger.info("Calculating the flux scale calibration table...")
     if os.path.isdir(cal.tables["flux"]):
         cal.casa.rmtables(cal.tables["flux"])
-    cal.casa.fluxscale(
+    cal.flux_models = cal.casa.fluxscale(
         vis=cal.vis,
         caltable=cal.tables["amplitude"],
         fluxtable=cal.tables["flux"],
         reference=field,
+        fitorder=2,
         incremental=True,
     )
     if not os.path.isdir(cal.tables["flux"]):
-        cal.logger.critical("Problem with flux scale alibration")
+        cal.logger.critical("Problem with flux scale calibration")
         raise ValueError("Problem with flux scale calibration!")
     cal.logger.info("Done.")

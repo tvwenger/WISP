@@ -86,14 +86,10 @@ def mfs_dirty_cont(img):
     # Due to widebandpbcor limitiations, need to go into outdir
     os.chdir(img.outdir)
     spwlist = [
-        int(spw)
-        for chan in img.cp["contpbchan"].split(",")
-        for spw in img.cont_spws
+        int(spw) for chan in img.cp["contpbchan"].split(",") for spw in img.cont_spws
     ]
     chanlist = [
-        int(chan)
-        for chan in img.cp["contpbchan"].split(",")
-        for spw in img.cont_spws
+        int(chan) for chan in img.cp["contpbchan"].split(",") for spw in img.cont_spws
     ]
     weightlist = [1.0 for _ in spwlist]
     casa.widebandpbcor(
@@ -224,16 +220,12 @@ def mfs_clean_cont(img):
 
         # Get RMS of residuals outside of clean mask
         dat = casa.imstat(
-            imagename="{0}.residual.tt0".format(
-                os.path.join(img.outdir, imagename)
-            ),
+            imagename="{0}.residual.tt0".format(os.path.join(img.outdir, imagename)),
             axes=[0, 1],
             mask="'{0}.mask' == 0".format(os.path.join(img.outdir, imagename)),
         )
         img.logger.info(
-            "Max un-masked RMS: {0:.2f} mJy/beam".format(
-                1000.0 * np.max(dat["rms"])
-            )
+            "Max un-masked RMS: {0:.2f} mJy/beam".format(1000.0 * np.max(dat["rms"]))
         )
         img.logger.info(
             "Max un-masked MAD*1.4826: {0:.2f} mJy/beam".format(
@@ -306,14 +298,10 @@ def mfs_clean_cont(img):
     # Due to widebandpbcor limitiations, need to go into outdir
     os.chdir(img.outdir)
     spwlist = [
-        int(spw)
-        for chan in img.cp["contpbchan"].split(",")
-        for spw in img.cont_spws
+        int(spw) for chan in img.cp["contpbchan"].split(",") for spw in img.cont_spws
     ]
     chanlist = [
-        int(chan)
-        for chan in img.cp["contpbchan"].split(",")
-        for spw in img.cont_spws
+        int(chan) for chan in img.cp["contpbchan"].split(",") for spw in img.cont_spws
     ]
     weightlist = [1.0 for _ in spwlist]
     casa.widebandpbcor(
@@ -388,9 +376,7 @@ def mfs_dirty_spws(img, spws, chans):
         if img.uvtaper:
             imagename = imagename + ".uvtaper"
         imagename = os.path.join(img.outdir, imagename)
-        img.logger.info(
-            "Generating dirty image of spw {0} (MFS)...".format(spw)
-        )
+        img.logger.info("Generating dirty image of spw {0} (MFS)...".format(spw))
         cleanspw = spw
         if chan:
             cleanspw = "{0}:{1}".format(spw, chan)
@@ -423,9 +409,7 @@ def mfs_dirty_spws(img, spws, chans):
         img.logger.info("Done.")
 
         # Generate primary beam image
-        img.logger.info(
-            "Generating primary beam image of spw {0} (MFS)...".format(spw)
-        )
+        img.logger.info("Generating primary beam image of spw {0} (MFS)...".format(spw))
         makePB(
             vis=img.vis,
             field=img.field,
@@ -572,9 +556,7 @@ def mfs_clean_spws(img, spws, chans, spwtype):
                 )
             )
             img.logger.info(
-                "Using max(MAD) x 1.4826 x {0} as threshold".format(
-                    img.cp["nrms"]
-                )
+                "Using max(MAD) x 1.4826 x {0} as threshold".format(img.cp["nrms"])
             )
             threshold = "{0:.2f}mJy".format(
                 img.cp["nrms"] * 1000.0 * 1.4826 * np.max(dat["medabsdevmed"])
@@ -588,9 +570,7 @@ def mfs_clean_spws(img, spws, chans, spwtype):
         if img.savemodel == "clean":
             savemodel = "modelcolumn"
         img.logger.info(
-            "Cleaning spw {0} (MFS) to threshold: {1}...".format(
-                spw, threshold
-            )
+            "Cleaning spw {0} (MFS) to threshold: {1}...".format(spw, threshold)
         )
         casa.tclean(
             vis=img.vis,

@@ -114,17 +114,11 @@ class Imaging:
         self.parallel = parallel
 
         # Get continuum and line spws from configuration file
-        self.cont_spws = self.config.get(
-            "Spectral Windows", "Continuum"
-        ).split(",")
-        self.cont_spws = [
-            cont_spw for cont_spw in self.cont_spws if cont_spw != ""
-        ]
+        self.cont_spws = self.config.get("Spectral Windows", "Continuum").split(",")
+        self.cont_spws = [cont_spw for cont_spw in self.cont_spws if cont_spw != ""]
         self.cont_chans = ["" for _ in self.cont_spws]
         self.line_spws = self.config.get("Spectral Windows", "Line").split(",")
-        self.line_spws = [
-            line_spw for line_spw in self.line_spws if line_spw != ""
-        ]
+        self.line_spws = [line_spw for line_spw in self.line_spws if line_spw != ""]
         self.line_chans = ["" for _ in self.cont_spws]
         self.logger.info("Found continuum spws: {0}".format(self.cont_spws))
         self.logger.info("Found line spws: {0}".format(self.line_spws))
@@ -144,9 +138,7 @@ class Imaging:
         self.cp["weighting"] = config.get("Clean", "weighting")
         self.cp["robust"] = config.getfloat("Clean", "robust")
         self.cp["scales"] = [
-            int(foo)
-            for foo in config.get("Clean", "scales").split(",")
-            if foo != ""
+            int(foo) for foo in config.get("Clean", "scales").split(",") if foo != ""
         ]
         self.cp["gain"] = config.getfloat("Clean", "gain")
         self.cp["cyclefactor"] = config.getfloat("Clean", "cyclefactor")
@@ -175,52 +167,32 @@ class Imaging:
         self.cp["contsidelobethreshold"] = config.getfloat(
             heading, "contsidelobethreshold"
         )
-        self.cp["contnoisethreshold"] = config.getfloat(
-            heading, "contnoisethreshold"
-        )
+        self.cp["contnoisethreshold"] = config.getfloat(heading, "contnoisethreshold")
         self.cp["contlownoisethreshold"] = config.getfloat(
             heading, "contlownoisethreshold"
         )
         self.cp["contnegativethreshold"] = config.getfloat(
             heading, "contnegativethreshold"
         )
-        self.cp["contsmoothfactor"] = config.getfloat(
-            heading, "contsmoothfactor"
-        )
-        self.cp["contminbeamfrac"] = config.getfloat(
-            heading, "contminbeamfrac"
-        )
-        self.cp["contcutthreshold"] = config.getfloat(
-            heading, "contcutthreshold"
-        )
-        self.cp["contgrowiterations"] = config.getint(
-            heading, "contgrowiterations"
-        )
+        self.cp["contsmoothfactor"] = config.getfloat(heading, "contsmoothfactor")
+        self.cp["contminbeamfrac"] = config.getfloat(heading, "contminbeamfrac")
+        self.cp["contcutthreshold"] = config.getfloat(heading, "contcutthreshold")
+        self.cp["contgrowiterations"] = config.getint(heading, "contgrowiterations")
         self.cp["linepbmask"] = config.getfloat(heading, "linepbmask")
         self.cp["linesidelobethreshold"] = config.getfloat(
             heading, "linesidelobethreshold"
         )
-        self.cp["linenoisethreshold"] = config.getfloat(
-            heading, "linenoisethreshold"
-        )
+        self.cp["linenoisethreshold"] = config.getfloat(heading, "linenoisethreshold")
         self.cp["linelownoisethreshold"] = config.getfloat(
             heading, "linelownoisethreshold"
         )
         self.cp["linenegativethreshold"] = config.getfloat(
             heading, "linenegativethreshold"
         )
-        self.cp["linesmoothfactor"] = config.getfloat(
-            heading, "linesmoothfactor"
-        )
-        self.cp["lineminbeamfrac"] = config.getfloat(
-            heading, "lineminbeamfrac"
-        )
-        self.cp["linecutthreshold"] = config.getfloat(
-            heading, "linecutthreshold"
-        )
-        self.cp["linegrowiterations"] = config.getint(
-            heading, "linegrowiterations"
-        )
+        self.cp["linesmoothfactor"] = config.getfloat(heading, "linesmoothfactor")
+        self.cp["lineminbeamfrac"] = config.getfloat(heading, "lineminbeamfrac")
+        self.cp["linecutthreshold"] = config.getfloat(heading, "linecutthreshold")
+        self.cp["linegrowiterations"] = config.getint(heading, "linegrowiterations")
 
         # Convert phase center if necessary
         self.cp["phasecenter"] = ""

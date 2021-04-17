@@ -62,6 +62,7 @@ from .caltables import (
 )
 
 from .poltables import (
+    polleak_setjy,
     crosshand_delays_table,
     polangle_table,
     polleak_table,
@@ -151,6 +152,9 @@ class Calibration:
         self.solint = solint
         self.logger.info("Initializing Calibration object.")
 
+        # storage for flux models returned by fluxscale
+        self.flux_models = None
+
         # Initialize calibration tables
         self.tables = {
             "antpos": "antpos.cal",
@@ -179,15 +183,9 @@ class Calibration:
         self.cont_spws = (
             self.config.get("Spectral Windows", "Continuum").strip().split(",")
         )
-        self.cont_spws = [
-            spw.strip() for spw in self.cont_spws if spw.strip() != ""
-        ]
-        self.line_spws = (
-            self.config.get("Spectral Windows", "Line").strip().split(",")
-        )
-        self.line_spws = [
-            spw.strip() for spw in self.line_spws if spw.strip() != ""
-        ]
+        self.cont_spws = [spw.strip() for spw in self.cont_spws if spw.strip() != ""]
+        self.line_spws = self.config.get("Spectral Windows", "Line").strip().split(",")
+        self.line_spws = [spw.strip() for spw in self.line_spws if spw.strip() != ""]
         self.logger.info("Found continuum spws: %s", ",".join(self.cont_spws))
         self.logger.info("Found line spws: %s", ",".join(self.line_spws))
 
@@ -202,9 +200,7 @@ class Calibration:
             elif "XX" in self.spw_corrs[spw] or "YY" in self.spw_corrs[spw]:
                 orientation = "linear"
             else:
-                raise ValueError(
-                    "Unknown correlation: {0}".format(self.spw_corrs[spw])
-                )
+                raise ValueError("Unknown correlation: {0}".format(self.spw_corrs[spw]))
             if self.orientation is None:
                 self.orientation = orientation
             elif self.orientation != orientation:
@@ -260,9 +256,7 @@ class Calibration:
             )
             if self.orientation == "circular":
                 if not self.pol_angle_cals:
-                    raise ValueError(
-                        "No polarization angle calibrators found."
-                    )
+                    raise ValueError("No polarization angle calibrators found.")
                 self.logger.info(
                     "Polarization angle calibrators: %s",
                     ", ".join(self.pol_angle_cals),
@@ -287,9 +281,7 @@ class Calibration:
 
         # Determine which secondary calibrator to user for each
         # science target
-        self.logger.info(
-            "Identifying secondary calibrators for each science target..."
-        )
+        self.logger.info("Identifying secondary calibrators for each science target...")
         self.science_calibrators = assign_secondary_calibrators(self)
 
         # create directories for figures
@@ -314,9 +306,7 @@ class Calibration:
         self.logger.info("Saving flag state...")
         cur_time = time.strftime("%Y %m %d %H %M %S", time.gmtime())
         versionname = "{0} {1}".format(label, cur_time)
-        self.casa.flagmanager(
-            vis=self.vis, mode="save", versionname=versionname
-        )
+        self.casa.flagmanager(vis=self.vis, mode="save", versionname=versionname)
         self.logger.info("Done")
 
     def gaintables(self, step, field):
@@ -513,8 +503,14 @@ def generate_tables(cal):
     # complex gain
     gain_tables(cal, use_smodel=False)
 
+    # set the flux scale
+    flux_table(cal)
+
     # polarization calibration
     if cal.calpol:
+        # set flux model for polarization leakage calibrators
+        polleak_setjy(cal)
+
         # cross-hand delay calibration
         if cal.orientation == "circular":
             crosshand_delays_table(cal)
@@ -526,21 +522,18 @@ def generate_tables(cal):
         if cal.orientation == "circular":
             polangle_table(cal)
 
-    # set the flux scale
-    flux_table(cal)
+        if cal.orientation == "linear":
+            # apply calibration solutions
+            apply_calibration(cal, "calibrator")
 
-    if cal.calpol and cal.orientation == "linear":
-        # apply calibration solutions
-        apply_calibration(cal, "calibrator")
+            # Estimate polarization from corrected data
+            cal.smodels = get_smodels(cal)
 
-        # Estimate polarization from corrected data
-        cal.smodels = get_smodels(cal)
-
-        # Re-do calibration using estimated polarization
-        prebandpass_primary_tables(cal, use_smodel=True)
-        bandpass_table(cal, use_smodel=False)
-        gain_tables(cal, use_smodel=False)
-        flux_table(cal)
+            # Re-do calibration using estimated polarization
+            prebandpass_primary_tables(cal, use_smodel=True)
+            bandpass_table(cal, use_smodel=True)
+            gain_tables(cal, use_smodel=True)
+            flux_table(cal)
 
 
 def apply_calibration(cal, fieldtype):

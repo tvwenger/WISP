@@ -89,10 +89,7 @@ def grid_parameters(img, spws):
                 width_hz = np.mean(casa.msmd.chanwidths(int(spw)))
                 width_kms = width_hz / center_hz * 299792.458  # km/s
                 nchans.append(
-                    int(
-                        abs(float(img.cp["end"]) - float(img.cp["start"]))
-                        / width_kms
-                    )
+                    int(abs(float(img.cp["end"]) - float(img.cp["start"])) / width_kms)
                     + 1
                 )
             casa.msmd.close()
@@ -282,23 +279,17 @@ def channel_clean_spws(img, spws, spwtype):
         # Get niters
         if nchan is None:
             # get number of channels from dirty image
-            imagename = "{0}.spw{1}.{2}.channel".format(
-                img.field, spw, img.stokes
-            )
+            imagename = "{0}.spw{1}.{2}.channel".format(img.field, spw, img.stokes)
             if img.uvtaper:
                 imagename = imagename + ".uvtaper"
             imagename = os.path.join(img.outdir, imagename)
             imagename = imagename + ".dirty.image.fits"
             if not os.path.exists(imagename):
                 raise ValueError(
-                    "Must create dirty channel cube first: {0}".format(
-                        imagename
-                    )
+                    "Must create dirty channel cube first: {0}".format(imagename)
                 )
             dirty_hdr = fits.getheader(imagename)
-            lightniter = (
-                img.cp["lightniter"] * dirty_hdr["NAXIS3"] * len(img.stokes)
-            )
+            lightniter = img.cp["lightniter"] * dirty_hdr["NAXIS3"] * len(img.stokes)
             niter = img.cp["maxniter"] * dirty_hdr["NAXIS3"] * len(img.stokes)
         else:
             lightniter = img.cp["lightniter"] * nchan * len(img.stokes)
@@ -308,9 +299,7 @@ def channel_clean_spws(img, spws, spwtype):
         imagename = "{0}.spw{1}.{2}.channel".format(img.field, spw, img.stokes)
         if img.uvtaper:
             imagename = imagename + ".uvtaper"
-            mask = "{0}.spw{1}.{2}.mfs.uvtaper.mask".format(
-                img.field, spw, img.stokes
-            )
+            mask = "{0}.spw{1}.{2}.mfs.uvtaper.mask".format(img.field, spw, img.stokes)
         else:
             mask = "{0}.spw{1}.{2}.mfs.mask".format(img.field, spw, img.stokes)
         imagename = os.path.join(img.outdir, imagename)
@@ -320,9 +309,7 @@ def channel_clean_spws(img, spws, spwtype):
             raise ValueError("{0} does not exist".format(mask))
         if not img.interactive:
             img.logger.info(
-                "Lightly cleaning spw {0} (restfreq: {1})...".format(
-                    spw, restfreq
-                )
+                "Lightly cleaning spw {0} (restfreq: {1})...".format(spw, restfreq)
             )
             img.logger.info("Using mask: {0}".format(mask))
             casa.tclean(
@@ -385,9 +372,7 @@ def channel_clean_spws(img, spws, spwtype):
                 )
             )
             img.logger.info(
-                "Using max(MAD) x 1.4826 x {0} as threshold".format(
-                    img.cp["nrms"]
-                )
+                "Using max(MAD) x 1.4826 x {0} as threshold".format(img.cp["nrms"])
             )
             threshold = "{0:.2f}mJy".format(
                 img.cp["nrms"] * 1000.0 * 1.4826 * np.max(dat["medabsdevmed"])

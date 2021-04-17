@@ -30,6 +30,12 @@ import pickle
 
 from .utils import generate_pdf
 
+# Catch raw_input in python 3
+try:
+    input = raw_input
+except NameError:
+    raw_input = input
+
 
 def plotcal_plots(cal):
     """

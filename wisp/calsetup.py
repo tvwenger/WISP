@@ -44,9 +44,7 @@ def get_calibrators(cal, caltype):
             Calibrator field names
     """
     # First try getting calibrators
-    cals = cal.config.get(
-        "Calibrators", "{0} Calibrators".format(caltype)
-    ).splitlines()
+    cals = cal.config.get("Calibrators", "{0} Calibrators".format(caltype)).splitlines()
     if cals:
         return [field for field in cals if field in cal.all_fields]
 
@@ -127,9 +125,7 @@ def get_spw_corrs(cal):
     for datadescid in datadescids:
         spw = spws[datadescid]
         polid = polids[datadescid]
-        corr = ",".join(
-            [corrints[i] for i in cal.casa.msmd.corrtypesforpol(polid)]
-        )
+        corr = ",".join([corrints[i] for i in cal.casa.msmd.corrtypesforpol(polid)])
         corrs[str(spw)] = corr
     cal.casa.msmd.close()
     return corrs
@@ -197,19 +193,13 @@ def assign_secondary_calibrators(cal):
             # If we've already found a calibrator for this source,
             # check that we found the same calibrator again.
             if calib is not None:
-                if (closest_before == closest_after) and (
-                    closest_before == calib
-                ):
+                if (closest_before == closest_after) and (closest_before == calib):
                     # good
                     continue
-                elif (closest_before == closest_after) and (
-                    closest_before != calib
-                ):
+                elif (closest_before == closest_after) and (closest_before != calib):
                     # update
                     calib = closest_before
-                elif (
-                    (closest_before is not None) and (closest_before == calib)
-                ) or (
+                elif ((closest_before is not None) and (closest_before == calib)) or (
                     (closest_after is not None) and (closest_after == calib)
                 ):
                     # good
@@ -225,9 +215,7 @@ def assign_secondary_calibrators(cal):
                     )
             else:
                 if closest_before is None and closest_after is None:
-                    raise ValueError(
-                        "No good calibrator {0}".format(sci_field)
-                    )
+                    raise ValueError("No good calibrator {0}".format(sci_field))
                 elif closest_before == closest_after:
                     # good
                     calib = closest_before
