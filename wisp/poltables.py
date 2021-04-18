@@ -57,7 +57,7 @@ def polleak_setjy(cal):
                 if value["fieldName"] == field:
                     fluxdensity = value["fitFluxd"]
                     spix = value["spidx"]
-                    reffreq = value["fitRefFreq"]
+                    reffreq = "{0}Hz".format(value["fitRefFreq"])
                     break
         if fluxdensity is None:
             cal.logger.critical("No flux model found: {0}".format(field))
