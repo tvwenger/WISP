@@ -10,15 +10,13 @@ A modular radio interferometry data calibration and imaging pipeline
 
 * [Requirements](#requirements)
 
+* [Installation](#installation)
+
 * [Calibration Quick-Start](#calibration-quick-start)
 
 * [Imaging Quick-Start](#imaging-quick-start)
 
 * [Configuration File](#configuration-file)
-
-* [Calibration Pipeline](#calibration-pipeline)
-
-* [Imaging Pipeline](#imaging-pipeline)
 
 * [License and Copyright](#license-and-copyright)
 
@@ -41,13 +39,13 @@ The main benefits of WISP over existing data reduction pipelines are
 ## Caveats and Contributing
 
 WISP has been extensively tested using *CASA* versions 4.5.2,
-5.0.0, and 5.1.2. There may be differences between these versions
+5.0.0, 5.1.2, and 5.7.2. There may be differences between these versions
 of *CASA* and previous/future versions that break the functionality
 of WISP.
 
-We have used WISP to calibrate and image data from the Australia
+We have used WISP to calibrate and image continuum, spectral line, and polarization data from the Australia
 Telescope Compact Array (ATCA) and the Jansky Very Large Array (JVLA),
-both a ~7 GHz. If you use WISP with other telescopes or frequencies,
+at both ~1 GHz and ~7 GHz. If you use WISP with other telescopes or frequencies,
 you may need to make modifications to the code.
 
 If you find any bugs or would like to add any new features to WISP,
@@ -57,11 +55,11 @@ of WISP.
 
 ## Requirements
 
-* Latest version of [*CASA*](https://casa.nrao.edu/)
+* Version 5 of [*CASA*](https://casa.nrao.edu/)
 * LaTeX installation with the available command `pdflatex`
 
 Note: The `matplotlib` and `astropy` packages included with *CASA*
-are very out of date (at least in *CASA* version 5.1.2). You may need
+are very out of date (at least in *CASA* version 5.7.2). You may need
 to upgrade these within *CASA* via
 
 ```python
@@ -69,6 +67,13 @@ import pip
 pip.main(['install','pip','--upgrade'])
 pip.main(['install','astropy','--upgrade'])
 pip.main(['install','matplotlib','--upgrade'])
+```
+
+## Installation
+
+Clone this repository, then run:
+```bash
+/path/to/casa/bin/python setup.py install
 ```
 
 ## Calibration Quick-Start
@@ -79,36 +84,34 @@ WISP.
 * Create and/or edit the configuration file for your project (see
   [Configuration File](#configuration-file) section below)
 
-* In the directory containing the measurement set, link (or copy) the
-  required WISP programs
-  
-   ```bash
-   ln -s /path/to/WISP/calibration.py .
-   ln -s /path/to/WISP/logging.conf .
-   ln -s /path/to/WISP/config/my_project.ini .
-   ```
-
 * Start *CASA*
 
    ```bash
-   /path/to/casa
+   /path/to/casa/bin/casa
    ```
 
-* Import the WISP calibration pipeline. Note that some versions of
-  CASA do not include the current directory (`.`) in the system path,
-  so you may need to add it.
+* Import WISP
 
    ```python
-   import sys
-   sys.path = ['.']+sys.path
-   import calibration
+   from wisp import wisp
    ```
 
-* Run the WISP calibration pipeline for your measurement set and
-  project configuration file
+* Run the WISP calibration pipeline for your measurement set (`my_data.ms`) and
+  project configuration file (`my_config.ini`). You must also chose an appropriate
+  reference antenna (`refant`). The arguments are `shadow_tolerance`, which is the
+  tolerance in meters that an antenna may be shadowed before it is flagged, 
+  `quack_interval`, which is the interval in seconds to flag at the beginning of each
+  scan, `antpos` if you wish to apply antenna position corrections (VLA only),
+  `gaincurve` if you wish to apply gain curve corrections, `opacity` if you wish
+  to apply opacity corrections, `calpol` if you wish to apply polarization calibrations,
+  `calwt` if you wish to update the data weights using the calibration solutions,
+  and `solint` to set the short timescale solution interval (default is `int` for solutions
+  at every integration).
   
    ```python
-   calibration.main(vis='my_data.ms', config_file='my_project.ini')
+   wisp.calibrate('my_data.ms', 'my_config.ini', 'refant', shadow_tolerance=0.0,
+                  quack_interval=0.0, antpos=True, gaincurve=True, opacity=True,
+                  calpol=True, solint='10s')
    ```
 
 * Select the required calibration tasks from the menu:
@@ -164,7 +167,7 @@ WISP.
 
          This task will generate diagnostic plots for every science
          field.  The individual figures are saved in
-         `scitarg_figures/` and compiled in `science_figures.pdf`.
+         `science_figures/` and compiled in `science_figures.pdf`.
 
    * `8. Manually flag science fields`
 
@@ -183,8 +186,9 @@ WISP.
   numbers to automatically run those tasks:
   
    ```python
-   calibration.main(vis='my_data.ms', config_file='my_project.ini',
-                    auto='0,4,1,4,5,6,7')
+   wisp.calibrate('my_data.ms', 'my_config.ini', 'refant', shadow_tolerance=0.0,
+                  quack_interval=0.0, antpos=True, gaincurve=True, opacity=True,
+                  calpol=True, solint='10s', auto='0,4,1,4,2,3')
    ```
 
 * Here is a typical recipe for calibrating a measurement set:
@@ -209,57 +213,34 @@ Here is a short tutorial for imaging a measurement set with WISP.
 * Create and/or edit the configuration file for your project (see
   [Configuration File](#configuration-file) section below)
 
-* In the directory containing the measurement set, link (or copy) the
-  required WISP programs
-
-   ```bash
-   ln -s /path/to/WISP/imaging.py .
-   ln -s /path/to/WISP/unflag.py .
-   ln -s /path/to/WISP/logging.conf .
-   ln -s /path/to/WISP/config/my_project.ini .
-   ```
-
 * Start *CASA*
 
    ```bash
    /path/to/casa
    ```
 
-* Import the WISP imaging pipeline. Note that some versions of
-  CASA do not include the current directory (`.`) in the system path,
-  so you may need to add it.
+* Import WISP
 
    ```python
-   import sys
-   sys.path = ['.']+sys.path
-   import imaging
-   ```
-
-* You may wish to first check that the calibration pipeline did not
-  automatically flag your bright spectral lines.
-
-   ```python
-   plotms(vis='myfield.ms', xaxis='channel', yaxis='amp',
-          iteraxis='spw', coloraxis='baseline', avgtime='1e7',
-          correlation='RR, LL')
-   ```
-
-   If you find that the bright spectral lines were flagged, you can
-   use the `unflag` program to un-flag them:
-   
-   ```python
-   import unflag
-   unflag.main('myfield',vis='myfield.ms', config_file='my_project.ini')
+   from WISP import WISP
    ```
 
 * If you are imaging a measurement set of a split field (i.e. like
   those generated by the calibration pipeline), then it is convenient to
   define a `field` variable like so. Run the WISP imaging pipeline for
-  your measurement set, field, and project configuration file
+  your measurement set, field, and project configuration file (`my_confit.ini`).
+  The arguments are `outdir`, which is the directory in which all images
+  are placed, `stokes`, which are the Stokes parameters you wish to image,
+  `uvtaper` if you wish to taper the data before imaging, `outertaper`, which
+  defines the size of the taper, `interactive` if you want to interactively clean,
+  and `parallel` if you run to run parallel TCLEAN (note that CASA should be
+  started with `mpi-casa` in this case.) 
 
    ```python
    field='myfieldname'
-   imaging.main(field, vis=field+'.ms', config_file='my_project.ini')
+   wisp.imaging('{0}.ms'.format(field), field, 'my_config.ini', outdir='images',
+                stokes='IQUV', uvtaper=True, outertaper='10arcsec', interactive=False,
+                parallel=False)
    ```
 
 * Select the required imaging tasks from the menu:
@@ -270,7 +251,7 @@ Here is a short tutorial for imaging a measurement set with WISP.
          windows using multi-frequency synthesis, multi-term, and
          multi-scale TCLEAN.
 
-   * `1. Autoclean combined continuum spws (MFS; multi-term; multi-scale)`
+   * `1. Clean combined continuum spws (MFS; multi-term; multi-scale)`
 
          Use auto-multithresh to automatically clean the above image.
 
@@ -279,7 +260,7 @@ Here is a short tutorial for imaging a measurement set with WISP.
          Generate a multi-frequency synthesis, multi-scale TCLEAN
          dirty image of each individual continuum spectral window.
 
-   * `3. Autoclean each continuum spw (MFS; multi-scale)`
+   * `3. Clean each continuum spw (MFS; multi-scale)`
 
          Use auto-multithresh to automatically clean the above images.
 
@@ -288,7 +269,7 @@ Here is a short tutorial for imaging a measurement set with WISP.
          Generate a multi-scale TCLEAN dirty data cube for each
          continuum spectral window.
 
-   * `5. Autoclean each continuum spw (channel; multi-scale)`
+   * `5. Clean each continuum spw (channel; multi-scale)`
 
          Use auto-multithresh to automatically clean the above cubes.
 
@@ -297,7 +278,7 @@ Here is a short tutorial for imaging a measurement set with WISP.
          Generate a multi-frequency synthesis, multi-scale TCLEAN
          dirty image of each individual line spectral window.
       
-   * `7. Autoclean each line spw (MFS; multi-scale)`
+   * `7. Clean each line spw (MFS; multi-scale)`
 
          Use auto-multithresh to automatically clean the above images.
 
@@ -306,35 +287,28 @@ Here is a short tutorial for imaging a measurement set with WISP.
          Generate a multi-scale TCLEAN dirty data cube for each line
          spectral window.
 
-   * `9. Autoclean each line spw (channel; multi-scale)`
+   * `9. Clean each line spw (channel; multi-scale)`
 
          Use auto-multithresh to automatically clean the above cubes.
 
-   * `10. Generate continuum and line diagnostic plots`
+   * `10. Generate continuum diagnostic plots`
 
-         Generate figures for each continuum and spectral line image,
-         then compile those figures into `<field>.contplots.pdf` and
-         `<field>.lineplots.pdf`.
+         Generate figures for each continuum image,
+         then compile those figures into `<field>.contplots.pdf`
+
+   * `11. Generate spectral line diagnostic plots`
+
+         Generate figures for each spectral line image,
+         then compile those figures into `<field>.lineplots.pdf`.
 
 * Or, pass the `auto` keyword to a string of comma separated menu
    numbers to automatically run those tasks:
 
    ```python
-   imaging.main(field, vis=field+'.ms', config_file='my_project.ini',
-                auto='0,1,2,3,6,7,8,9,10')
-   ```
-
-* Here is a recipe for imaging both the continuum and line spectral
-  windows for a measurement set, re-gridding the velocity axis of the
-  line spectral windows to a common velocity frame, and generating both
-  non-uv-tapered and uv-tapered images:
-
-   ```python
-   field='myfield'
-   imaging.main(field, vis=field+'.ms', config_file='my_project.ini',
-                regrid=True, uvtaper=False, auto='0,1,2,3,6,7,8,9,10')
-   imaging.main(field, vis=field+'.ms', config_file='my_project.ini',
-                regrid=True, uvtaper=True, auto='0,1,2,3,6,7,8,9,10')
+   field='myfieldname'
+   wisp.imaging('{0}.ms'.format(field), field, 'my_config.ini', outdir='images',
+                stokes='IQUV', uvtaper=True, outertaper='10arcsec', interactive=False,
+                parallel=False, auto='0,1,2,3,10`)
    ```
 
 ## Configuration File
@@ -347,7 +321,7 @@ Here we explain each of the available parameters.
 * [Calibrators]
 
    The parameters under this heading define the primary (bandpass),
-   secondary (gain), and flux calibrators. If these parameters are
+   secondary (gain), flux, and polarization calibrators. If these parameters are
    left blank, the calibrators are determined from the CASA LISTOBS
    output. If there are multiple values for a parameter, they must
    be listed on new lines. For example
@@ -367,27 +341,29 @@ Here we explain each of the available parameters.
 
       The flux calibrator(s).
 
-* [Flux Calibrator Models]
+   * PolLeakage Calibrators
+      
+      The polarization leakage calibrator(s).
+
+   * PolAngle Calibrators
+
+      The polarization angle calibrator(s).
+
+* [Calibrator Models]
 
    If CASA is missing the flux model (or has an incorrect model) for
    one or more of the flux calibrators, use these parameters to define
-   the flux model. The model for flux S at frequency f is given by:
-   S(f) = S0 * (f/f0) ** (a0 + a1*log10(f/f0) + a2*log10((f/f0)**2))
-   where S0 is the flux density at reference frequency f0, and a0, a1,
-   and a2 are the spectral index coefficients. If you wish to define
-   flux models for multiple flux calibrators, do so by listing
-   the values on new lines. For example
-   
-   ```bash
-   Name                        = 3C48
-                                 3C286
-   Reference Frequency         = 5000MHz
-                                 8000MHz
-   Log Flux Density            = -30.8
-                                 -50.2
-   Spectral Index Coefficients = 26.3,-8.2,1.5
-                                 40.2,-10.7,0.9
-   ```
+   the flux model. The calibrator models must be specified here for
+   polarized calibrators. The model for flux `S` at frequency `f` is given by:
+   `S(f) = S0 * (f/f0) ** (a0 + a1*log10(f/f0) + a2*log10((f/f0)**2))`
+   where `S0` is the flux density at reference frequency `f0`, and `a0`, `a1`,
+   and `a2` are the spectral index coefficients. The model for polarization fraction (between 0.0 and 1.0)
+   is given by: `P(f) = p0 + p1 * ((f-f0)/f0) + p2 * ((f-f0)/f0)**2.0` where 
+   `p0`, `p1`, and `p2` are the polarization fraction coefficients. The model for polarization angle
+   (in radians) is given by: `X(f) = x0 + x1 * ((f-f0)/f0) + x2 * ((f-f0)/f0)**2.0` where 
+   `x0`, `x1`, and `x2` are the polarization angle coefficients. If you wish to define
+   models for multiple calibrators, do so by listing
+   the values on new lines. 
    
    * Name
 
@@ -396,16 +372,25 @@ Here we explain each of the available parameters.
 
    * Refrence Frequency
 
-      The reference frequency (with units as shown in the example).
+      The reference frequency (with units).
 
-   * Log Flux Density
+   * Flux Density
 
-      The log10 of the flux density (in Jy) at the reference
-      frequency.
+      The flux density (in Jy) at the reference frequency.
 
    * Spectral Index Coefficients
 
       Comma-separated spectral index coefficients (a0,a1,a2) as
+      defined in the model equation.
+
+   * Polarization Fraction Coefficients
+
+      Comma-separated polarization fraction coefficients (p0,p1,p2) as
+      defined in the model equation.
+
+   * Polarization Angle Coefficients
+
+      Comma-separated polarization fraction coefficients (x0,x1,x2) as
       defined in the model equation.
 
 * [Spectral Windows]
@@ -427,14 +412,6 @@ Here we explain each of the available parameters.
 
       Which spectral windows are for continuum analyses.
 
-* [Polarization]
-
-   * Polarization
-
-      Define the polarization direction for these data. For example:
-      ```bash
-      Polarization = LL,RR
-      ```
 
 * [Flags]
 
@@ -442,22 +419,12 @@ Here we explain each of the available parameters.
    the entire measurement set. Multiple values are separated by commas,
    and the syntax follows the normal CASA FLAGDATA syntax. For example:
    ```bash
+   Scan               = 0,1
    Antenna            = ea01,ea02
+   Spectral Window    = 10
    Line Channels      = 0~200,900~1100
    Continuum Channels = 0,10,25,40
    ```
-
-   * Antenna
-
-      Flag these antennas in all of the data.
-
-   * Line Channels
-
-      Flag these channels in every line spectral window.
-
-   * Continuum Channels
-
-      Flag these channels in every continuum spectral window.
 
 * [Interpolate]
 
@@ -469,33 +436,6 @@ Here we explain each of the available parameters.
    Line Channels      = 256,512
    Continuum Channels = 2,5,10
    ```
-
-   * Line Channels
-
-      Line spectral windows channels to interpolate.
-
-   * Continuum Channels
-
-      Continuum spectral window channels to interpolate.
-
-* [Bandpass Channel Average]
-
-   Define the number of channels to be averaged when computing
-   bandpass calibration solutions. An empty value means use no
-   channel averaging. For example:
-   
-   ```bash
-   Line Channels      = 16
-   Continuum Channels =
-   ```
-
-   * Line Channels
-
-      The number of line spectral window channels to average.
-
-   * Continuum Channels
-
-      The number of continuum spectral window channels to average.
 
 * [Clean]
 
@@ -568,52 +508,6 @@ Here we explain each of the available parameters.
    uv-tapering. For more information about each parameter, see
    the [auto-multithresh documentation](https://casaguides.nrao.edu/index.php/Automasking_Guide).
 
-* [Unflag]
-
-   These parameters define how line spectral window data should be
-   automatically un-flagged when the automatic flagging algorithms
-   unintentionally flag bright spectral lines. Multiple values
-   are comma-separated, for example:
-   
-   ```bash
-   offset = 20,20,15,15,15,10,5,0
-   width  = 100
-   ```
-   If a spectral line is located at channel X in the last line
-   spectral window, these parameters define where the spectral line
-   is in every other spectral window. In each other spectral window,
-   the line should be at channel X + Y where Y is the offset. The
-   channels X+Y-width/2 to X+Y+width/2 are un-flagged.
-
-   * offset
-
-      Comma-separated channel offsets for each line spectral window
-      relative to the last line spectral window. The channel offset is
-      the location of a given velocity relative to the last line
-      spectral window. For example, if a velocity of 0 km/s is located
-      at channel 5, 10, 15, 20, and 25 in line spectral windows 1, 2,
-      3, 4, and 5, the channel offsets would be -20, -15, -10, -5, and
-      0.
-
-   * width
-
-      The total number of channels centered on the given channel to
-      be un-flagged.
-
-## Calibration Pipeline
-
-This section is still under construction. In the meantime, you can
-review the arguments and functionality of the WISP calibration
-pipeline by looking through the documentation within the code.
-Start with the `main` function.
-
-## Imaging Pipeline
-
-This section is still under construction. In the meantime, you can
-review the arguments and functionality of the WISP imaging pipeline by
-looking through the documentation within the code. Start with the
-`main` function.
-
 ## License and Copyright
 
 GNU General Public License v3 (GNU GPLv3)
@@ -631,5 +525,5 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright(C) 2018 by
+Copyright(C) 2018-2021 by
 Trey V. Wenger; tvwenger@gmail.com
