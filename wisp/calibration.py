@@ -37,7 +37,7 @@ Trey V. Wenger August 2019 - V2.0
     Re-designed to OOP framework.
     Speed up interpolation.
 
-Trey V. Wenger - April 2021 - v2.2
+Trey V. Wenger - April 2021 - v3.0
     Improve code readability.
     Restructure polarization calibration.
     Add support for polarization angle calibration.
