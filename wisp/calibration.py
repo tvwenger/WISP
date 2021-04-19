@@ -409,15 +409,9 @@ class Calibration:
         spwmaps.append([])
 
         # add flux
-        if not self.calpol and not os.path.exists(self.tables["flux"]):
-            raise ValueError("Missing flux calibration table.")
-        if os.path.exists(self.tables["flux"]):
-            gaintables.append(self.tables["flux"])
-            if field in self.sci_targets:
-                gainfields.append(self.science_calibrators[field])
-            else:
-                gainfields.append(field)
-            spwmaps.append([])
+        gaintables.append(self.tables["flux"])
+        gainfields.append("")
+        spwmaps.append([])
 
         # we're done if we're not doing polarization calibration
         if (not self.calpol and step == "apply") or step == "crosshand_delays":
@@ -509,7 +503,7 @@ def generate_tables(cal):
     # polarization calibration
     if cal.calpol:
         # set flux model for polarization leakage calibrators
-        polleak_setjy(cal)
+        # polleak_setjy(cal)
 
         # cross-hand delay calibration
         if cal.orientation == "circular":
