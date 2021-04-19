@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="WISP",
-    version="2.2",
+    version="3.0",
     description="Wenger Interferometry Software Package",
     author="Trey V. Wenger",
     author_email="tvwenger@gmail.com",

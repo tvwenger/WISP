@@ -10,15 +10,13 @@ A modular radio interferometry data calibration and imaging pipeline
 
 * [Requirements](#requirements)
 
+* [Installation](#installation)
+
 * [Calibration Quick-Start](#calibration-quick-start)
 
 * [Imaging Quick-Start](#imaging-quick-start)
 
 * [Configuration File](#configuration-file)
-
-* [Calibration Pipeline](#calibration-pipeline)
-
-* [Imaging Pipeline](#imaging-pipeline)
 
 * [License and Copyright](#license-and-copyright)
 
@@ -527,5 +525,5 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright(C) 2018 by
+Copyright(C) 2018-2021 by
 Trey V. Wenger; tvwenger@gmail.com
