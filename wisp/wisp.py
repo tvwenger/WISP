@@ -54,6 +54,8 @@ except NameError:
 # load logging configuration file
 logging.config.fileConfig(os.path.join(os.path.dirname(__file__), "logging.conf"))
 
+__version__ = "3.0"
+
 
 def calibrate(
     vis,
