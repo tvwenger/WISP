@@ -22,7 +22,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Changelog:
-Trey V. Wenger August 2019 - V2.1
+Trey V. Wenger - April 2021 - v2.2
     Improve code readability.
 """
 

@@ -20,60 +20,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Changelog:
-Trey V. Wenger August 2019 - V2.1
+Trey V. Wenger - April 2021 - v2.2
     Improve code readability.
 """
 
 import os
-
-
-def polleak_setjy(cal):
-    """
-    Set flux model for polarization leakage calibrator.
-
-    Inputs:
-        cal :: Calibration object
-            The calibration object
-
-    Returns: Nothing
-    """
-    fields = cal.pol_leak_cals
-    if cal.flux_models is None:
-        cal.logger.critical("No flux models!")
-        raise ValueError("No flux models!")
-
-    cal.logger.info("Setting flux model for polarization leakage calibrators")
-    for field in fields:
-        if field in cal.flux_cals:
-            cal.logger.info("Skipping flux calibrator {0}".format(field))
-            continue
-
-        # get flux model
-        fluxdensity = None
-        spix = None
-        reffreq = None
-        for value in cal.flux_models.values():
-            if isinstance(value, dict):
-                if value["fieldName"] == field:
-                    fluxdensity = value["fitFluxd"]
-                    spix = value["spidx"]
-                    reffreq = "{0}Hz".format(value["fitRefFreq"])
-                    break
-        if fluxdensity is None:
-            cal.logger.critical("No flux model found: {0}".format(field))
-            raise ValueError("No flux model found: {0}".format(field))
-
-        # set flux model
-        cal.casa.setjy(
-            vis=cal.vis,
-            field=field,
-            scalebychan=True,
-            standard="manual",
-            fluxdensity=fluxdensity,
-            spix=spix,
-            reffreq=reffreq,
-        )
-    cal.logger.info("Done.")
 
 
 def crosshand_delays_table(cal):

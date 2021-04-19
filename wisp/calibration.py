@@ -37,7 +37,7 @@ Trey V. Wenger August 2019 - V2.0
     Re-designed to OOP framework.
     Speed up interpolation.
 
-Trey V. Wenger August 2019 - V2.1
+Trey V. Wenger - April 2021 - v2.2
     Improve code readability.
     Restructure polarization calibration.
     Add support for polarization angle calibration.
@@ -62,7 +62,6 @@ from .caltables import (
 )
 
 from .poltables import (
-    polleak_setjy,
     crosshand_delays_table,
     polangle_table,
     polleak_table,
@@ -360,15 +359,6 @@ class Calibration:
         # add delays
         gaintables.append(self.tables["delays"])
         gainfields.append("")
-        # get spw number in calibration table
-        # self.casa.tb.open(self.tables["delays"])
-        # cal_spws = np.unique(self.casa.tb.getcol("SPECTRAL_WINDOW_ID"))
-        # self.casa.tb.close()
-        # if len(cal_spws) > 1:
-        #    raise ValueError(
-        #        "Delays calibration table has more than one spectral window"
-        #    )
-        # spwmaps.append([[cal_spws[0]] * num_spws])
         spwmaps.append([])
         if step == "phase_int0":
             return gaintables, gainfields, spwmaps
@@ -421,16 +411,6 @@ class Calibration:
         if self.calpol and os.path.exists(self.tables["crosshand_delays"]):
             gaintables.append(self.tables["crosshand_delays"])
             gainfields.append("")
-            # get spw number in calibration table
-            # self.casa.tb.open(self.tables["crosshand_delays"])
-            # cal_spws = np.unique(self.casa.tb.getcol("SPECTRAL_WINDOW_ID"))
-            # self.casa.tb.close()
-            # if len(cal_spws) > 1:
-            #    raise ValueError(
-            #        "Cross-hand delays calibration table has more than one "
-            #        "spectral window"
-            #    )
-            # spwmaps.append([[cal_spws[0]] * num_spws])
             spwmaps.append([])
         if step == "polleak":
             return gaintables, gainfields, spwmaps
@@ -502,9 +482,6 @@ def generate_tables(cal):
 
     # polarization calibration
     if cal.calpol:
-        # set flux model for polarization leakage calibrators
-        # polleak_setjy(cal)
-
         # cross-hand delay calibration
         if cal.orientation == "circular":
             crosshand_delays_table(cal)
