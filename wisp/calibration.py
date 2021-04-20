@@ -537,36 +537,38 @@ def apply_calibration(cal, fieldtype):
     for field in fields:
         if cal.calpol:
             # no polarization spectral windows
-            gaintables, gainfields, spwmaps = cal.gaintables(
-                "apply", field, poltables=False
-            )
-            cal.casa.applycal(
-                vis=cal.vis,
-                field=field,
-                spw=",".join(cal.nocorr_spws),
-                calwt=cal.calwt,
-                gaintable=gaintables,
-                gainfield=gainfields,
-                spwmap=spwmaps,
-                parang=cal.calpol,
-                flagbackup=False,
-            )
+            if len(cal.nocorr_spws) > 0:
+                gaintables, gainfields, spwmaps = cal.gaintables(
+                    "apply", field, poltables=False
+                )
+                cal.casa.applycal(
+                    vis=cal.vis,
+                    field=field,
+                    spw=",".join(cal.nocorr_spws),
+                    calwt=cal.calwt,
+                    gaintable=gaintables,
+                    gainfield=gainfields,
+                    spwmap=spwmaps,
+                    parang=cal.calpol,
+                    flagbackup=False,
+                )
 
             # polarization spectral windows
-            gaintables, gainfields, spwmaps = cal.gaintables(
-                "apply", field, poltables=True
-            )
-            cal.casa.applycal(
-                vis=cal.vis,
-                field=field,
-                spw=",".join(cal.corr_spws),
-                calwt=cal.calwt,
-                gaintable=gaintables,
-                gainfield=gainfields,
-                spwmap=spwmaps,
-                parang=cal.calpol,
-                flagbackup=False,
-            )
+            if len(cal.corr_spws) > 0:
+                gaintables, gainfields, spwmaps = cal.gaintables(
+                    "apply", field, poltables=True
+                )
+                cal.casa.applycal(
+                    vis=cal.vis,
+                    field=field,
+                    spw=",".join(cal.corr_spws),
+                    calwt=cal.calwt,
+                    gaintable=gaintables,
+                    gainfield=gainfields,
+                    spwmap=spwmaps,
+                    parang=cal.calpol,
+                    flagbackup=False,
+                )
         else:
             # all spectral windows
             gaintables, gainfields, spwmaps = cal.gaintables("apply", field)
