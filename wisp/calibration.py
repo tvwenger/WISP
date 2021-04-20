@@ -543,7 +543,7 @@ def apply_calibration(cal, fieldtype):
             cal.casa.applycal(
                 vis=cal.vis,
                 field=field,
-                spw=cal.nocorr_spws,
+                spw=",".join(cal.nocorr_spws),
                 calwt=cal.calwt,
                 gaintable=gaintables,
                 gainfield=gainfields,
@@ -559,7 +559,7 @@ def apply_calibration(cal, fieldtype):
             cal.casa.applycal(
                 vis=cal.vis,
                 field=field,
-                spw=cal.corr_spws,
+                spw=",".join(cal.corr_spws),
                 calwt=cal.calwt,
                 gaintable=gaintables,
                 gainfield=gainfields,
