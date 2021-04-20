@@ -308,7 +308,7 @@ class Calibration:
         self.casa.flagmanager(vis=self.vis, mode="save", versionname=versionname)
         self.logger.info("Done")
 
-    def gaintables(self, step, field):
+    def gaintables(self, step, field, poltables=True):
         """
         Get the calibration tables up to a given calibration step, excluding
         missing optional tables. Also return the associated fields and spectral
@@ -327,6 +327,8 @@ class Calibration:
                 amplitude tables to be either <field> if <field> is a
                 calibrator or the associated calibrator <field> if <field>
                 is a science target.
+            poltables :: boolean
+                If True, include polarization tables if self.calpol is True
 
         Returns: gaintables, gainfields, spwmaps
             gaintables :: list of strings
@@ -407,7 +409,11 @@ class Calibration:
         spwmaps.append([])
 
         # we're done if we're not doing polarization calibration
-        if (not self.calpol and step == "apply") or step == "crosshand_delays":
+        if (
+            not poltables
+            or (not self.calpol and step == "apply")
+            or step == "crosshand_delays"
+        ):
             return gaintables, gainfields, spwmaps
 
         # add cross-hand delays
@@ -529,15 +535,49 @@ def apply_calibration(cal, fieldtype):
     else:
         raise ValueError("Invalid fieldtype: {0}".format(fieldtype))
     for field in fields:
-        gaintables, gainfields, spwmaps = cal.gaintables("apply", field)
-        cal.casa.applycal(
-            vis=cal.vis,
-            field=field,
-            calwt=cal.calwt,
-            gaintable=gaintables,
-            gainfield=gainfields,
-            spwmap=spwmaps,
-            parang=False,
-            flagbackup=False,
-        )
+        if cal.calpol:
+            # no polarization spectral windows
+            gaintables, gainfields, spwmaps = cal.gaintables(
+                "apply", field, poltables=False
+            )
+            cal.casa.applycal(
+                vis=cal.vis,
+                field=field,
+                spw=cal.nocorr_spws,
+                calwt=cal.calwt,
+                gaintable=gaintables,
+                gainfield=gainfields,
+                spwmap=spwmaps,
+                parang=cal.calpol,
+                flagbackup=False,
+            )
+
+            # polarization spectral windows
+            gaintables, gainfields, spwmaps = cal.gaintables(
+                "apply", field, poltables=True
+            )
+            cal.casa.applycal(
+                vis=cal.vis,
+                field=field,
+                spw=cal.corr_spws,
+                calwt=cal.calwt,
+                gaintable=gaintables,
+                gainfield=gainfields,
+                spwmap=spwmaps,
+                parang=cal.calpol,
+                flagbackup=False,
+            )
+        else:
+            # all spectral windows
+            gaintables, gainfields, spwmaps = cal.gaintables("apply", field)
+            cal.casa.applycal(
+                vis=cal.vis,
+                field=field,
+                calwt=cal.calwt,
+                gaintable=gaintables,
+                gainfield=gainfields,
+                spwmap=spwmaps,
+                parang=cal.calpol,
+                flagbackup=False,
+            )
     cal.save_flags("calibrate")
