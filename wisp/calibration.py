@@ -402,10 +402,11 @@ class Calibration:
 
         # add flux
         gaintables.append(self.tables["flux"])
-        if field in self.sci_targets:
-            gainfields.append(self.science_calibrators[field])
-        else:
-            gainfields.append(field)
+        gainfields.append("")
+        # if field in self.sci_targets:
+        #    gainfields.append(self.science_calibrators[field])
+        # else:
+        #    gainfields.append(field)
         spwmaps.append([])
 
         # we're done if we're not doing polarization calibration
