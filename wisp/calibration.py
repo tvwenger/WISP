@@ -399,46 +399,42 @@ class Calibration:
         else:
             gainfields.append(field)
         spwmaps.append([])
+        if step == "crosshand_delays":
+            return gaintables, gainfields, spwmaps
+
+        # add polarization calibration tables if necessary
+        if self.calpol and poltables:
+            # add cross-hand delays
+            if os.path.exists(self.tables["crosshand_delays"]):
+                gaintables.append(self.tables["crosshand_delays"])
+                gainfields.append("")
+                spwmaps.append([])
+            if step == "polleak":
+                return gaintables, gainfields, spwmaps
+
+            # add polarization leakage
+            if os.path.exists(self.tables["polleak"]):
+                gaintables.append(self.tables["polleak"])
+                gainfields.append("")
+                spwmaps.append([])
+            if step == "polangle":
+                return gaintables, gainfields, spwmaps
+
+            # add polarization angle
+            if os.path.exists(self.tables["polangle"]):
+                gaintables.append(self.tables["polangle"])
+                gainfields.append("")
+                spwmaps.append([])
 
         # add flux
         gaintables.append(self.tables["flux"])
         gainfields.append("")
-        # if field in self.sci_targets:
-        #    gainfields.append(self.science_calibrators[field])
-        # else:
-        #    gainfields.append(field)
+        if field in self.sci_targets:
+            gainfields.append(self.science_calibrators[field])
+        else:
+            gainfields.append(field)
         spwmaps.append([])
-
-        # we're done if we're not doing polarization calibration
-        if (
-            not poltables
-            or (not self.calpol and step == "apply")
-            or step == "crosshand_delays"
-        ):
-            return gaintables, gainfields, spwmaps
-
-        # add cross-hand delays
-        if self.calpol and os.path.exists(self.tables["crosshand_delays"]):
-            gaintables.append(self.tables["crosshand_delays"])
-            gainfields.append("")
-            spwmaps.append([])
-        if step == "polleak":
-            return gaintables, gainfields, spwmaps
-
-        # add polarization leakage
-        if self.calpol and os.path.exists(self.tables["polleak"]):
-            gaintables.append(self.tables["polleak"])
-            gainfields.append("")
-            spwmaps.append([])
-        if step == "polangle":
-            return gaintables, gainfields, spwmaps
-
-        # add polarization angle
-        if self.calpol and os.path.exists(self.tables["polangle"]):
-            gaintables.append(self.tables["polangle"])
-            gainfields.append("")
-            spwmaps.append([])
-        if self.calpol and step == "apply":
+        if step == "apply":
             return gaintables, gainfields, spwmaps
 
         # we should never get here
