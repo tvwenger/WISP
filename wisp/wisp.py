@@ -1,7 +1,7 @@
 """
 wisp.py - Wenger Interferometry Software Package
 
-Copyright(C) 2018-2020 by
+Copyright(C) 2018-2021 by
 Trey V. Wenger; tvwenger@gmail.com
 
 GNU General Public License v3 (GNU GPLv3)
@@ -54,7 +54,7 @@ except NameError:
 # load logging configuration file
 logging.config.fileConfig(os.path.join(os.path.dirname(__file__), "logging.conf"))
 
-__version__ = "3.0"
+__version__ = "3.1"
 
 
 def calibrate(

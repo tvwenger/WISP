@@ -4,7 +4,7 @@ calibration.py - WISP Calibration Pipeline Object
 Calibrate a measurement set by scripting CASA tasks and generating
 diagnostic plots.
 
-Copyright(C) 2018-2020 by
+Copyright(C) 2018-2021 by
 Trey V. Wenger; tvwenger@gmail.com
 
 GNU General Public License v3 (GNU GPLv3)
@@ -41,6 +41,9 @@ Trey V. Wenger - April 2021 - v3.0
     Improve code readability.
     Restructure polarization calibration.
     Add support for polarization angle calibration.
+
+Trey V. Wenger - April 2021 - v3.1
+    Fix bug in calibration table order and applycal parang
 """
 
 import os
