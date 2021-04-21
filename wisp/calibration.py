@@ -483,9 +483,6 @@ def generate_tables(cal):
     # complex gain
     gain_tables(cal, use_smodel=False)
 
-    # set the flux scale
-    flux_table(cal)
-
     # polarization calibration
     if cal.calpol:
         # cross-hand delay calibration
@@ -510,7 +507,9 @@ def generate_tables(cal):
             prebandpass_primary_tables(cal, use_smodel=True)
             bandpass_table(cal, use_smodel=True)
             gain_tables(cal, use_smodel=True)
-            flux_table(cal)
+
+    # set the flux scale
+    flux_table(cal)
 
 
 def apply_calibration(cal, fieldtype):
