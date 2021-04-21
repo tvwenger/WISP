@@ -4,7 +4,7 @@ calibration.py - WISP Calibration Pipeline Object
 Calibrate a measurement set by scripting CASA tasks and generating
 diagnostic plots.
 
-Copyright(C) 2018-2020 by
+Copyright(C) 2018-2021 by
 Trey V. Wenger; tvwenger@gmail.com
 
 GNU General Public License v3 (GNU GPLv3)
@@ -41,6 +41,9 @@ Trey V. Wenger - April 2021 - v3.0
     Improve code readability.
     Restructure polarization calibration.
     Add support for polarization angle calibration.
+
+Trey V. Wenger - April 2021 - v3.1
+    Fix bug in calibration table order and applycal parang
 """
 
 import os
@@ -308,7 +311,7 @@ class Calibration:
         self.casa.flagmanager(vis=self.vis, mode="save", versionname=versionname)
         self.logger.info("Done")
 
-    def gaintables(self, step, field):
+    def gaintables(self, step, field, poltables=True):
         """
         Get the calibration tables up to a given calibration step, excluding
         missing optional tables. Also return the associated fields and spectral
@@ -327,6 +330,8 @@ class Calibration:
                 amplitude tables to be either <field> if <field> is a
                 calibrator or the associated calibrator <field> if <field>
                 is a science target.
+            poltables :: boolean
+                If True, include polarization tables if self.calpol is True
 
         Returns: gaintables, gainfields, spwmaps
             gaintables :: list of strings
@@ -397,41 +402,42 @@ class Calibration:
         else:
             gainfields.append(field)
         spwmaps.append([])
+        if step == "crosshand_delays":
+            return gaintables, gainfields, spwmaps
+
+        # add polarization calibration tables if necessary
+        if self.calpol and poltables:
+            # add cross-hand delays
+            if os.path.exists(self.tables["crosshand_delays"]):
+                gaintables.append(self.tables["crosshand_delays"])
+                gainfields.append("")
+                spwmaps.append([])
+            if step == "polleak":
+                return gaintables, gainfields, spwmaps
+
+            # add polarization leakage
+            if os.path.exists(self.tables["polleak"]):
+                gaintables.append(self.tables["polleak"])
+                gainfields.append("")
+                spwmaps.append([])
+            if step == "polangle":
+                return gaintables, gainfields, spwmaps
+
+            # add polarization angle
+            if os.path.exists(self.tables["polangle"]):
+                gaintables.append(self.tables["polangle"])
+                gainfields.append("")
+                spwmaps.append([])
 
         # add flux
         gaintables.append(self.tables["flux"])
+        gainfields.append("")
         if field in self.sci_targets:
             gainfields.append(self.science_calibrators[field])
         else:
             gainfields.append(field)
         spwmaps.append([])
-
-        # we're done if we're not doing polarization calibration
-        if (not self.calpol and step == "apply") or step == "crosshand_delays":
-            return gaintables, gainfields, spwmaps
-
-        # add cross-hand delays
-        if self.calpol and os.path.exists(self.tables["crosshand_delays"]):
-            gaintables.append(self.tables["crosshand_delays"])
-            gainfields.append("")
-            spwmaps.append([])
-        if step == "polleak":
-            return gaintables, gainfields, spwmaps
-
-        # add polarization leakage
-        if self.calpol and os.path.exists(self.tables["polleak"]):
-            gaintables.append(self.tables["polleak"])
-            gainfields.append("")
-            spwmaps.append([])
-        if step == "polangle":
-            return gaintables, gainfields, spwmaps
-
-        # add polarization angle
-        if self.calpol and os.path.exists(self.tables["polangle"]):
-            gaintables.append(self.tables["polangle"])
-            gainfields.append("")
-            spwmaps.append([])
-        if self.calpol and step == "apply":
+        if step == "apply":
             return gaintables, gainfields, spwmaps
 
         # we should never get here
@@ -480,9 +486,6 @@ def generate_tables(cal):
     # complex gain
     gain_tables(cal, use_smodel=False)
 
-    # set the flux scale
-    flux_table(cal)
-
     # polarization calibration
     if cal.calpol:
         # cross-hand delay calibration
@@ -507,7 +510,9 @@ def generate_tables(cal):
             prebandpass_primary_tables(cal, use_smodel=True)
             bandpass_table(cal, use_smodel=True)
             gain_tables(cal, use_smodel=True)
-            flux_table(cal)
+
+    # set the flux scale
+    flux_table(cal)
 
 
 def apply_calibration(cal, fieldtype):
@@ -529,15 +534,51 @@ def apply_calibration(cal, fieldtype):
     else:
         raise ValueError("Invalid fieldtype: {0}".format(fieldtype))
     for field in fields:
-        gaintables, gainfields, spwmaps = cal.gaintables("apply", field)
-        cal.casa.applycal(
-            vis=cal.vis,
-            field=field,
-            calwt=cal.calwt,
-            gaintable=gaintables,
-            gainfield=gainfields,
-            spwmap=spwmaps,
-            parang=False,
-            flagbackup=False,
-        )
+        if cal.calpol:
+            # no polarization spectral windows
+            if len(cal.nocorr_spws) > 0:
+                gaintables, gainfields, spwmaps = cal.gaintables(
+                    "apply", field, poltables=False
+                )
+                cal.casa.applycal(
+                    vis=cal.vis,
+                    field=field,
+                    spw=",".join(cal.nocorr_spws),
+                    calwt=cal.calwt,
+                    gaintable=gaintables,
+                    gainfield=gainfields,
+                    spwmap=spwmaps,
+                    parang=cal.calpol,
+                    flagbackup=False,
+                )
+
+            # polarization spectral windows
+            if len(cal.corr_spws) > 0:
+                gaintables, gainfields, spwmaps = cal.gaintables(
+                    "apply", field, poltables=True
+                )
+                cal.casa.applycal(
+                    vis=cal.vis,
+                    field=field,
+                    spw=",".join(cal.corr_spws),
+                    calwt=cal.calwt,
+                    gaintable=gaintables,
+                    gainfield=gainfields,
+                    spwmap=spwmaps,
+                    parang=cal.calpol,
+                    flagbackup=False,
+                )
+        else:
+            # all spectral windows
+            gaintables, gainfields, spwmaps = cal.gaintables("apply", field)
+            cal.casa.applycal(
+                vis=cal.vis,
+                field=field,
+                calwt=cal.calwt,
+                gaintable=gaintables,
+                gainfield=gainfields,
+                spwmap=spwmaps,
+                parang=cal.calpol,
+                flagbackup=False,
+            )
     cal.save_flags("calibrate")

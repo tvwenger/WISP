@@ -1,7 +1,7 @@
 """
 caltables.py - Generate calibration tables
 
-Copyright(C) 2018-2020 by
+Copyright(C) 2018-2021 by
 Trey V. Wenger; tvwenger@gmail.com
 
 GNU General Public License v3 (GNU GPLv3)
