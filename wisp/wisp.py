@@ -206,6 +206,7 @@ def imaging(
     uvrange="",
     uvtaper=False,
     outertaper="",
+    phasecenter="",
     interactive=False,
     savemodel=None,
     parallel=False,
@@ -235,6 +236,8 @@ def imaging(
         if True, apply UV tapering
       outertaper :: string
         Tapering FWHM
+      phasecenter :: string
+        If not empty, use this phase center
       interactive :: boolean
         if True, interactively clean
       savemodel :: string
@@ -289,6 +292,7 @@ def imaging(
         spws=spws,
         uvrange=uvrange,
         stokes=stokes,
+        phasecenter=phasecenter,
         savemodel=savemodel,
         interactive=interactive,
         parallel=parallel,
