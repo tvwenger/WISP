@@ -241,15 +241,16 @@ class Imaging:
             self.line_spws = my_line_spws
             self.line_chans = my_line_chans
 
-        # Determine which spws actually have data
-        casa.msmd.open(self.vis)
-        good_spws = casa.msmd.spwsforfield(self.field)
-        casa.msmd.close()
-        if self.cont_spws:
-            self.logger.info("Checking cont spws...")
-            self.cont_spws = [s for s in self.cont_spws if int(s) in good_spws]
-            self.logger.info("Using cont spws: {0}".format(self.cont_spws))
-        if self.line_spws:
-            self.logger.info("Checking line spws...")
-            self.line_spws = [s for s in self.line_spws if int(s) in good_spws]
-            self.logger.info("Using line spws: {0}".format(self.line_spws))
+        if self.field is not None and self.field != "":
+            # Determine which spws actually have data
+            casa.msmd.open(self.vis)
+            good_spws = casa.msmd.spwsforfield(self.field)
+            casa.msmd.close()
+            if self.cont_spws:
+                self.logger.info("Checking cont spws...")
+                self.cont_spws = [s for s in self.cont_spws if int(s) in good_spws]
+                self.logger.info("Using cont spws: {0}".format(self.cont_spws))
+            if self.line_spws:
+                self.logger.info("Checking line spws...")
+                self.line_spws = [s for s in self.line_spws if int(s) in good_spws]
+                self.logger.info("Using line spws: {0}".format(self.line_spws))
