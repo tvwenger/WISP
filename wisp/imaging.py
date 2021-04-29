@@ -48,6 +48,7 @@ class Imaging:
         spws="",
         uvrange="",
         stokes="I",
+        phasecenter="",
         savemodel=None,
         interactive=False,
         parallel=False,
@@ -80,6 +81,8 @@ class Imaging:
             Selection on UV-range
           stokes :: string
             The Stokes parameters we're imaging. e.g. 'I' or 'IQUV'
+          phasecenter :: string
+            If not empty, use this phase center
           savemodel :: string
             if not none, save individual MFS images of each spectral
             window to the model column of the measurement set for
@@ -195,8 +198,8 @@ class Imaging:
         self.cp["linegrowiterations"] = config.getint(heading, "linegrowiterations")
 
         # Convert phase center if necessary
-        self.cp["phasecenter"] = ""
-        if self.cp["frame"] == "GALACTIC":
+        self.cp["phasecenter"] = phasecenter
+        if self.cp["phasecenter"] == "" and self.cp["frame"] == "GALACTIC":
             casa.msmd.open(self.vis)
             # get field ID number
             fieldid = list(casa.msmd.fieldsforname(self.field))[0]
