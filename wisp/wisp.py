@@ -220,7 +220,8 @@ def imaging(
       vis :: string
         The measurement set containing all data for field
       field :: string
-        The field name to image
+        The field name to image. If None, image all fields and
+        name output images after MS
       config_file :: string
         filename of the configuration file for this project
       outdir :: string

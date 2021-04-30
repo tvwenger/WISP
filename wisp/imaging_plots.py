@@ -57,10 +57,10 @@ def contplot(img):
             spw = "spw{0}".format(spw)
 
         # check that this spectral window exists
-        fname = "{0}.{1}.{2}.mfs.clean.image.fits".format(img.field, spw, img.stokes)
+        fname = "{0}.{1}.{2}.mfs.clean.image.fits".format(img.imfield, spw, img.stokes)
         if img.uvtaper:
             fname = "{0}.{1}.{2}.mfs.uvtaper.clean.image.fits".format(
-                img.field, spw, img.stokes
+                img.imfield, spw, img.stokes
             )
         fname = os.path.join(img.outdir, fname)
         if not os.path.exists(fname):
@@ -68,37 +68,37 @@ def contplot(img):
         if img.uvtaper:
             fitsfiles = [
                 "{0}.{1}.{2}.mfs.uvtaper.dirty.image.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
                 "{0}.{1}.{2}.mfs.uvtaper.clean.image.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
                 "{0}.{1}.{2}.mfs.uvtaper.clean.residual.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
                 "{0}.{1}.{2}.mfs.uvtaper.clean.pbcor.image.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
             ]
             maskfiles = [
                 "{0}.{1}.{2}.mfs.uvtaper.clean.mask.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
                 "{0}.{1}.{2}.mfs.uvtaper.clean.mask.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
                 "{0}.{1}.{2}.mfs.uvtaper.clean.mask.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
                 "{0}.{1}.{2}.mfs.uvtaper.clean.mask.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
             ]
             titles = [
-                "{0} - {1} - Taper/Dirty".format(img.field, spw),
-                "{0} - {1} - Taper/Clean".format(img.field, spw),
-                "{0} - {1} - Taper/Residual".format(img.field, spw),
-                "{0} - {1} - Taper/PBCorr".format(img.field, spw),
+                "{0} - {1} - Taper/Dirty".format(img.imfield, spw),
+                "{0} - {1} - Taper/Clean".format(img.imfield, spw),
+                "{0} - {1} - Taper/Residual".format(img.imfield, spw),
+                "{0} - {1} - Taper/PBCorr".format(img.imfield, spw),
             ]
             labels = [
                 "Flux Density (Jy/beam)",
@@ -114,26 +114,26 @@ def contplot(img):
             ]
         else:
             fitsfiles = [
-                "{0}.{1}.{2}.mfs.dirty.image.fits".format(img.field, spw, img.stokes),
-                "{0}.{1}.{2}.mfs.clean.image.fits".format(img.field, spw, img.stokes),
+                "{0}.{1}.{2}.mfs.dirty.image.fits".format(img.imfield, spw, img.stokes),
+                "{0}.{1}.{2}.mfs.clean.image.fits".format(img.imfield, spw, img.stokes),
                 "{0}.{1}.{2}.mfs.clean.residual.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
                 "{0}.{1}.{2}.mfs.clean.pbcor.image.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
             ]
             maskfiles = [
-                "{0}.{1}.{2}.mfs.clean.mask.fits".format(img.field, spw, img.stokes),
-                "{0}.{1}.{2}.mfs.clean.mask.fits".format(img.field, spw, img.stokes),
-                "{0}.{1}.{2}.mfs.clean.mask.fits".format(img.field, spw, img.stokes),
-                "{0}.{1}.{2}.mfs.clean.mask.fits".format(img.field, spw, img.stokes),
+                "{0}.{1}.{2}.mfs.clean.mask.fits".format(img.imfield, spw, img.stokes),
+                "{0}.{1}.{2}.mfs.clean.mask.fits".format(img.imfield, spw, img.stokes),
+                "{0}.{1}.{2}.mfs.clean.mask.fits".format(img.imfield, spw, img.stokes),
+                "{0}.{1}.{2}.mfs.clean.mask.fits".format(img.imfield, spw, img.stokes),
             ]
             titles = [
-                "{0} - {1} - Dirty".format(img.field, spw),
-                "{0} - {1} - Clean".format(img.field, spw),
-                "{0} - {1} - Residual".format(img.field, spw),
-                "{0} - {1} - PBCorr".format(img.field, spw),
+                "{0} - {1} - Dirty".format(img.imfield, spw),
+                "{0} - {1} - Clean".format(img.imfield, spw),
+                "{0} - {1} - Residual".format(img.imfield, spw),
+                "{0} - {1} - PBCorr".format(img.imfield, spw),
             ]
             labels = [
                 "Flux Density (Jy/beam)",
@@ -252,9 +252,9 @@ def contplot(img):
     # need to fix filenames so LaTeX doesn't complain
     outplots = ["{" + fn.replace(".pdf", "") + "}.pdf" for fn in goodplots]
     img.logger.info("Generating PDF...")
-    fname = "{0}.contplots.tex".format(img.field)
+    fname = "{0}.contplots.tex".format(img.imfield)
     if img.uvtaper:
-        fname = "{0}.uvtaper.contplots.tex".format(img.field)
+        fname = "{0}.uvtaper.contplots.tex".format(img.imfield)
     with open(os.path.join(img.outdir, fname), "w") as f:
         f.write(r"\documentclass{article}" + "\n")
         f.write(r"\usepackage{graphicx}" + "\n")
@@ -312,11 +312,11 @@ def lineplot(img):
     for spw in img.line_spws:
         # check that this spectral window exists
         fname = "{0}.spw{1}.{2}.channel.clean.image.fits".format(
-            img.field, spw, img.stokes
+            img.imfield, spw, img.stokes
         )
         if img.uvtaper:
             fname = "{0}.spw{1}.{2}.channel.uvtaper.clean.image.fits".format(
-                img.field, spw, img.stokes
+                img.imfield, spw, img.stokes
             )
         fname = os.path.join(img.outdir, fname)
         if not os.path.exists(fname):
@@ -326,26 +326,26 @@ def lineplot(img):
         if img.uvtaper:
             fitsfiles = [
                 "{0}.spw{1}.{2}.channel.uvtaper.dirty.image.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
                 "{0}.spw{1}.{2}.channel.uvtaper.clean.image.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
                 "{0}.spw{1}.{2}.channel.uvtaper.clean.residual.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
                 "{0}.spw{1}.{2}.channel.uvtaper.clean.pbcor.image.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
             ]
             maskfile = "{0}.spw{1}.{2}.channel.uvtaper.clean.mask.fits".format(
-                img.field, spw, img.stokes
+                img.imfield, spw, img.stokes
             )
             titles = [
-                "{0} - {1} - Taper/Dirty".format(img.field, spw),
-                "{0} - {1} - Taper/Clean".format(img.field, spw),
-                "{0} - {1} - Taper/Residual".format(img.field, spw),
-                "{0} - {1} - Taper/PBCorr".format(img.field, spw),
+                "{0} - {1} - Taper/Dirty".format(img.imfield, spw),
+                "{0} - {1} - Taper/Clean".format(img.imfield, spw),
+                "{0} - {1} - Taper/Residual".format(img.imfield, spw),
+                "{0} - {1} - Taper/PBCorr".format(img.imfield, spw),
             ]
             labels = [
                 "Flux Density (Jy/beam)",
@@ -362,26 +362,26 @@ def lineplot(img):
         else:
             fitsfiles = [
                 "{0}.spw{1}.{2}.channel.dirty.image.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
                 "{0}.spw{1}.{2}.channel.clean.image.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
                 "{0}.spw{1}.{2}.channel.clean.residual.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
                 "{0}.spw{1}.{2}.channel.clean.pbcor.image.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 ),
             ]
             maskfile = "{0}.spw{1}.{2}.channel.clean.mask.fits".format(
-                img.field, spw, img.stokes
+                img.imfield, spw, img.stokes
             )
             titles = [
-                "{0} - {1} - Dirty".format(img.field, spw),
-                "{0} - {1} - Clean".format(img.field, spw),
-                "{0} - {1} - Residual".format(img.field, spw),
-                "{0} - {1} - PBCorr".format(img.field, spw),
+                "{0} - {1} - Dirty".format(img.imfield, spw),
+                "{0} - {1} - Clean".format(img.imfield, spw),
+                "{0} - {1} - Residual".format(img.imfield, spw),
+                "{0} - {1} - PBCorr".format(img.imfield, spw),
             ]
             labels = [
                 "Flux Density (Jy/beam)",
@@ -496,11 +496,11 @@ def lineplot(img):
             # Generate spectrum
             if img.uvtaper:
                 fitsfile = "{0}.spw{1}.{2}.channel.uvtaper.clean.image.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 )
             else:
                 fitsfile = "{0}.spw{1}.{2}.channel.clean.image.fits".format(
-                    img.field, spw, img.stokes
+                    img.imfield, spw, img.stokes
                 )
             hdu = fits.open(os.path.join(img.outdir, fitsfile))[0]
             spec = hdu.data[ind, :, center_x, center_y]
@@ -522,10 +522,12 @@ def lineplot(img):
             ax.set_ylim(np.nanmin(spec) - ybuff, np.nanmax(spec) + ybuff)
             if img.uvtaper:
                 ax.set_title(
-                    "{0} - {1} - Taper/Center - {2}".format(img.field, spw, stokes)
+                    "{0} - {1} - Taper/Center - {2}".format(img.imfield, spw, stokes)
                 )
             else:
-                ax.set_title("{0} - {1} - Center - {2}".format(img.field, spw, stokes))
+                ax.set_title(
+                    "{0} - {1} - Center - {2}".format(img.imfield, spw, stokes)
+                )
             ax.grid(False)
             fig.tight_layout()
             fname = fitsfile.replace(".fits", ".{0}.spec.pdf".format(stokes))
@@ -538,9 +540,9 @@ def lineplot(img):
     # need to fix filenames so LaTeX doesn't complain
     goodplots = ["{" + fn.replace(".pdf", "") + "}.pdf" for fn in goodplots]
     img.logger.info("Generating PDF...")
-    fname = "{0}.lineplots.tex".format(img.field)
+    fname = "{0}.lineplots.tex".format(img.imfield)
     if img.uvtaper:
-        fname = "{0}.uvtaper.lineplots.tex".format(img.field)
+        fname = "{0}.uvtaper.lineplots.tex".format(img.imfield)
     with open(os.path.join(img.outdir, fname), "w") as f:
         f.write(r"\documentclass{article}" + "\n")
         f.write(r"\usepackage{graphicx}" + "\n")

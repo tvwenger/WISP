@@ -62,7 +62,8 @@ class Imaging:
           vis :: string
             The measurement set
           field :: string
-            The field name to image
+            The field name to image. If None, image all fields and
+            name output images after MS
           logger :: logging.Logger object
             The logging object we're using
           config :: a ConfigParser object
@@ -103,6 +104,9 @@ class Imaging:
         """
         self.vis = vis
         self.field = field
+        self.imfield = field
+        if self.imfield is None:
+            self.imfield = vis.replace(".ms", "")
         self.logger = logger
         self.config = config
         self.outdir = outdir
@@ -206,6 +210,10 @@ class Imaging:
         # Convert phase center if necessary
         self.cp["phasecenter"] = phasecenter
         if self.cp["phasecenter"] == "" and self.cp["frame"] == "GALACTIC":
+            if self.field is None:
+                raise ValueError(
+                    "Must supply field name or pass a phase center position"
+                )
             casa.msmd.open(self.vis)
             # get field ID number
             fieldid = list(casa.msmd.fieldsforname(self.field))[0]
@@ -247,7 +255,7 @@ class Imaging:
             self.line_spws = my_line_spws
             self.line_chans = my_line_chans
 
-        if self.field is not None and self.field != "":
+        if self.field is not None:
             # Determine which spws actually have data
             casa.msmd.open(self.vis)
             good_spws = casa.msmd.spwsforfield(self.field)

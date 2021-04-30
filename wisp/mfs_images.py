@@ -42,7 +42,7 @@ def mfs_dirty_cont(img):
 
     Returns: Nothing
     """
-    imagename = "{0}.cont.{1}.mfs".format(img.field, img.stokes)
+    imagename = "{0}.cont.{1}.mfs".format(img.imfield, img.stokes)
     if img.uvtaper:
         imagename = imagename + ".uvtaper"
     img.logger.info("Generating dirty continuum image (MFS)...")
@@ -161,7 +161,7 @@ def mfs_clean_cont(img):
     """
     # If not cleaning interactively, lightly clean to get RMS
     # threshold
-    imagename = "{0}.cont.{1}.mfs".format(img.field, img.stokes)
+    imagename = "{0}.cont.{1}.mfs".format(img.imfield, img.stokes)
     if img.uvtaper:
         imagename = imagename + ".uvtaper"
     cleanspw = ",".join(
@@ -372,7 +372,7 @@ def mfs_dirty_spws(img, spws, chans):
     Returns: Nothing
     """
     for spw, chan in zip(spws, chans):
-        imagename = "{0}.spw{1}.{2}.mfs".format(img.field, spw, img.stokes)
+        imagename = "{0}.spw{1}.{2}.mfs".format(img.imfield, spw, img.stokes)
         if img.uvtaper:
             imagename = imagename + ".uvtaper"
         imagename = os.path.join(img.outdir, imagename)
@@ -484,7 +484,7 @@ def mfs_clean_spws(img, spws, chans, spwtype):
     """
     for spw, chan in zip(spws, chans):
         # If not interactive, Lightly clean to get threshold
-        imagename = "{0}.spw{1}.{2}.mfs".format(img.field, spw, img.stokes)
+        imagename = "{0}.spw{1}.{2}.mfs".format(img.imfield, spw, img.stokes)
         if img.uvtaper:
             imagename = imagename + ".uvtaper"
         imagename = os.path.join(img.outdir, imagename)

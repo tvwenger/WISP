@@ -140,7 +140,7 @@ def channel_dirty_spws(img, spws, spwtype):
 
     # Loop over spws
     for spw, restfreq, nchan in zip(spws, restfreqs, nchans):
-        imagename = "{0}.spw{1}.{2}.channel".format(img.field, spw, img.stokes)
+        imagename = "{0}.spw{1}.{2}.channel".format(img.imfield, spw, img.stokes)
         if img.uvtaper:
             imagename = imagename + ".uvtaper"
         imagename = os.path.join(img.outdir, imagename)
@@ -184,7 +184,7 @@ def channel_dirty_spws(img, spws, spwtype):
         img.logger.info("Done.")
 
         # Primary beam correction using MFS pb
-        pbimage = "{0}.spw{1}.{2}.mfs".format(img.field, spw, img.stokes)
+        pbimage = "{0}.spw{1}.{2}.mfs".format(img.imfield, spw, img.stokes)
         if img.uvtaper:
             pbimage += ".uvtaper"
         pbimage += ".pb.image.sub"
@@ -279,7 +279,7 @@ def channel_clean_spws(img, spws, spwtype):
         # Get niters
         if nchan is None:
             # get number of channels from dirty image
-            imagename = "{0}.spw{1}.{2}.channel".format(img.field, spw, img.stokes)
+            imagename = "{0}.spw{1}.{2}.channel".format(img.imfield, spw, img.stokes)
             if img.uvtaper:
                 imagename = imagename + ".uvtaper"
             imagename = os.path.join(img.outdir, imagename)
@@ -296,12 +296,14 @@ def channel_clean_spws(img, spws, spwtype):
             niter = img.cp["maxniter"] * nchan * len(img.stokes)
 
         # If not interactive, Lightly clean spw
-        imagename = "{0}.spw{1}.{2}.channel".format(img.field, spw, img.stokes)
+        imagename = "{0}.spw{1}.{2}.channel".format(img.imfield, spw, img.stokes)
         if img.uvtaper:
             imagename = imagename + ".uvtaper"
-            mask = "{0}.spw{1}.{2}.mfs.uvtaper.mask".format(img.field, spw, img.stokes)
+            mask = "{0}.spw{1}.{2}.mfs.uvtaper.mask".format(
+                img.imfield, spw, img.stokes
+            )
         else:
-            mask = "{0}.spw{1}.{2}.mfs.mask".format(img.field, spw, img.stokes)
+            mask = "{0}.spw{1}.{2}.mfs.mask".format(img.imfield, spw, img.stokes)
         imagename = os.path.join(img.outdir, imagename)
         mask = os.path.join(img.outdir, mask)
         if not os.path.isdir(mask):
@@ -430,7 +432,7 @@ def channel_clean_spws(img, spws, spwtype):
         img.logger.info("Done.")
 
         # Primary beam correction using MFS pb
-        pbimage = "{0}.spw{1}.{2}.mfs".format(img.field, spw, img.stokes)
+        pbimage = "{0}.spw{1}.{2}.mfs".format(img.imfield, spw, img.stokes)
         if img.uvtaper:
             pbimage += ".uvtaper"
         pbimage += ".pb.image.sub"
