@@ -48,7 +48,8 @@ class Imaging:
         spws="",
         uvrange="",
         stokes="I",
-        phasecenter="",
+        imsize=None,
+        phasecenter=None,
         savemodel=None,
         interactive=False,
         parallel=False,
@@ -81,6 +82,8 @@ class Imaging:
             Selection on UV-range
           stokes :: string
             The Stokes parameters we're imaging. e.g. 'I' or 'IQUV'
+          imsize :: list of integers
+            Image size. If None, use config file.
           phasecenter :: string
             If not empty, use this phase center
           savemodel :: string
@@ -130,9 +133,12 @@ class Imaging:
         self.cp = {}
         self.cp["lineids"] = config.get("Clean", "lineids").split(",")
         self.cp["restfreqs"] = config.get("Clean", "restfreqs").split(",")
-        self.cp["imsize"] = [
-            int(foo) for foo in config.get("Clean", "imsize").split(",")
-        ]
+        if imsize is None:
+            self.cp["imsize"] = [
+                int(foo) for foo in config.get("Clean", "imsize").split(",")
+            ]
+        else:
+            self.cp["imsize"] = imsize
         self.cp["frame"] = config.get("Clean", "frame")
         self.cp["pblimit"] = config.getfloat("Clean", "pblimit")
         self.cp["gridder"] = config.get("Clean", "gridder")
