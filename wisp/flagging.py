@@ -29,6 +29,8 @@ import pickle
 
 import numpy as np
 
+from interpolation import interpolate_channels
+
 # Catch raw_input in python 3
 try:
     input = raw_input
@@ -165,7 +167,7 @@ def preliminary_flagging(cal):
         )
         line_spws = [int(i) for i in cal.line_spws]
         badchans = np.array([int(i) for i in badchans])
-        cal.interpolate_channels(line_spws, badchans)
+        interpolate_channels(cal, line_spws, badchans)
         cal.logger.info("Done.")
 
     # Interpolate through bad continuum channels
@@ -178,7 +180,7 @@ def preliminary_flagging(cal):
         )
         cont_spws = [int(i) for i in cal.cont_spws]
         badchans = np.array([int(i) for i in badchans])
-        cal.interpolate_channels(cal.cont_spws, badchans)
+        interpolate_channels(cal, cal.cont_spws, badchans)
         cal.logger.info("Done")
 
     # Extend the flags
