@@ -106,7 +106,7 @@ class Imaging:
         self.field = field
         self.imfield = field
         if self.imfield is None:
-            self.imfield = vis.replace(".ms", "")
+            self.imfield = vis.split("/")[-1].split(".ms")[0]
         self.logger = logger
         self.config = config
         self.outdir = outdir
