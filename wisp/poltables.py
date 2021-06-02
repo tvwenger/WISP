@@ -99,7 +99,7 @@ def polleak_table(cal):
             spw=spw,
             caltable=cal.tables["polleak"],
             field=field,
-            solint="inf",
+            solint=cal.leakage_solint,
             combine="scan",
             poltype="Df",
             refant=cal.refant,

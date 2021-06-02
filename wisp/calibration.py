@@ -92,6 +92,7 @@ class Calibration:
         gaincurve=True,
         opacity=True,
         calpol=False,
+        leakage_solint="inf",
         calwt=True,
         solint="int",
     ):
@@ -129,6 +130,8 @@ class Calibration:
                 if True, compute opacity corrections
             calpol :: boolean
                 if True, calibrate polarization
+            leakge_solint :: string
+                Solution interval for D-term calibration (e.g., solint="inf,2MHz")
             calwt :: boolean
                 if True, apply calibration weights to data
             solint :: string
@@ -150,6 +153,7 @@ class Calibration:
         self.gaincurve = gaincurve
         self.opacity = opacity
         self.calpol = calpol
+        self.leakage_solint = leakage_solint
         self.calwt = calwt
         self.solint = solint
         self.logger.info("Initializing Calibration object.")

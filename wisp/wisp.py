@@ -67,6 +67,7 @@ def calibrate(
     gaincurve=True,
     opacity=True,
     calpol=False,
+    leakage_solint="inf",
     calwt=True,
     solint="int",
     auto="",
@@ -98,6 +99,8 @@ def calibrate(
             if True, compute opacity corrections
         calpol :: boolean
             if True, calibrate polarization
+        leakge_solint :: string
+            Solution interval for D-term calibration (e.g., solint="inf,2MHz")
         calwt :: boolean
             if True, apply calibration weights to data
         solint :: string
@@ -140,6 +143,7 @@ def calibrate(
         gaincurve=gaincurve,
         opacity=opacity,
         calpol=calpol,
+        leakage_solint=leakage_solint,
         calwt=calwt,
         solint=solint,
     )
