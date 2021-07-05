@@ -420,13 +420,6 @@ def mfs_dirty_spws(img, spws, chans):
             outimage="{0}.pb.image".format(imagename),
             pblimit=img.cp["pblimit"],
         )
-        # drop degenerate axes (channel and stokes if stokes=I)
-        casa.imsubimage(
-            imagename="{0}.pb.image".format(imagename),
-            outfile="{0}.pb.image.sub".format(imagename),
-            dropdeg=True,
-            overwrite=True,
-        )
         img.logger.info("Done.")
 
         # Primary beam correction
@@ -442,7 +435,7 @@ def mfs_dirty_spws(img, spws, chans):
         # Export to fits
         img.logger.info("Exporting fits file...")
         casa.exportfits(
-            imagename="{0}.pb.image.sub".format(imagename),
+            imagename="{0}.pb.image".format(imagename),
             fitsimage="{0}.pb.fits".format(imagename),
             overwrite=True,
             history=False,
