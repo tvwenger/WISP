@@ -28,6 +28,8 @@ import os
 import numpy as np
 from astropy.io import fits
 
+from .utils import makePB
+
 import __main__ as casa
 
 
@@ -183,12 +185,23 @@ def channel_dirty_spws(img, spws, spwtype):
         )
         img.logger.info("Done.")
 
-        # Primary beam correction using MFS pb
-        pbimage = "{0}.spw{1}.{2}.mfs".format(img.imfield, spw, img.stokes)
-        if img.uvtaper:
-            pbimage += ".uvtaper"
-        pbimage += ".pb.image.sub"
-        pbimage = os.path.join(img.outdir, pbimage)
+        # Generate primary beam image
+        img.logger.info(
+            "Generating primary beam image of spw {0} (channel)...".format(spw)
+        )
+        makePB(
+            vis=img.vis,
+            field=img.field,
+            spw=spw,
+            uvrange=img.uvrange,
+            stokes=img.stokes,
+            imtemplate="{0}.image".format(imagename),
+            outimage="{0}.pb.image".format(imagename),
+            pblimit=img.cp["pblimit"],
+        )
+
+        # Primary beam correction
+        pbimage = "{0}.pb.image".format(imagename)
         img.logger.info("Performing primary beam correction...")
         if not os.path.exists(pbimage):
             raise ValueError(
@@ -205,6 +218,13 @@ def channel_dirty_spws(img, spws, spwtype):
         # Export to fits
         img.logger.info("Exporting fits file...")
         velocity = spwtype == "line"
+        casa.exportfits(
+            imagename="{0}.pb.image".format(imagename),
+            fitsimage="{0}.pb.fits".format(imagename),
+            velocity=velocity,
+            overwrite=True,
+            history=False,
+        )
         casa.exportfits(
             imagename="{0}.image".format(imagename),
             fitsimage="{0}.dirty.image.fits".format(imagename),
@@ -431,12 +451,8 @@ def channel_clean_spws(img, spws, spwtype):
         )
         img.logger.info("Done.")
 
-        # Primary beam correction using MFS pb
-        pbimage = "{0}.spw{1}.{2}.mfs".format(img.imfield, spw, img.stokes)
-        if img.uvtaper:
-            pbimage += ".uvtaper"
-        pbimage += ".pb.image.sub"
-        pbimage = os.path.join(img.outdir, pbimage)
+        # Primary beam correction
+        pbimage = "{0}.pb.image".format(imagename)
         img.logger.info("Performing primary beam correction...")
         if not os.path.exists(pbimage):
             raise ValueError(
